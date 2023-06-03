@@ -1,15 +1,10 @@
 from generate_bill import generate_pdf_bill
+from bill_database import new_user, get_client_info
 
 PDF_FILE_NAME = "factura_greenergy xx-xxxxxx.pdf"
 
 # Define a dictionary that stores information about the client
-CLIENT_INFO = {
-    "name": "George Adrian",
-    "street": "Strada 9 Mai nr. 28",
-    "zipcode": "450060",
-    "city": "Cluj-Napoca",
-    "county": "Cluj"
-}
+CLIENT_INFO = get_client_info(3)
 
 # Define a dictionary that stores identification information about the current bill
 BILL_INFO = {
