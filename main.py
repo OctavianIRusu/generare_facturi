@@ -29,9 +29,5 @@ BILL_DETAILS = {
     "Valoare fara TVA": [124.76, 0.54, 6.38, -80.82],
     "Valoare TVA (19%)": [23.7, 0.1, 1.21, -15.36]
 }
-try:
-    generate_pdf_bill(PDF_FILE_NAME, CLIENT_INFO, BILL_INFO, BILL_DETAILS)
-except TypeError as terr:
-    print(terr)
-except Exception as err:
-    print(err)
+
+generate_pdf_bill(PDF_FILE_NAME, CLIENT_INFO, BILL_INFO, BILL_DETAILS)
