@@ -1,3 +1,4 @@
+import traceback
 from pathlib import Path
 from reportlab.graphics.barcode import code128
 from reportlab.lib.colors import black, lightgrey, white, whitesmoke, green
@@ -30,7 +31,7 @@ COMPANY_INFO = {
     "email": "contact@greenergy.ro"
 }
 
-def draw_img(canvas: Canvas, file_path: Path, x_origin: float, y_origin: float, img_width: float, img_height: float, mask):
+def draw_img(canvas: Canvas, file_path: Path, x_origin: float, y_origin: float, img_width: float, img_height: float):
     """
     Inserts an image within a canvas
     
@@ -41,22 +42,25 @@ def draw_img(canvas: Canvas, file_path: Path, x_origin: float, y_origin: float, 
     - ybl_origin (float): The y-coordinate of the bottom-left corner of the image (percentage of the page size, e.g. 0.85)
     - img_width (float): The width of the image (percentage of the page size, e.g. 0.85)
     - img_height (float): The height of the image (percentage of the page size, e.g. 0.85)
-    - mask (str): The mask to apply when drawing the image (optional)
     
     Raises:
-    - OSError: If the specified file cannot be accessed or opened
     - ValueError: If any of the float arguments (`x_origin`, `y_origin`, `img_width`, `img_height`)
             have invalid values, such as negative values or values exceeding the canvas dimensions.
+    - OSError: If the specified file cannot be accessed or opened
+    - TypeError: If any of the arguments is not of expected type
+    - Exception:  If any other unexpected error occurs during the execution of the function
             
     Returns:
         None
     """
     try:
+        if not isinstance(canvas, Canvas):
+            raise TypeError("The 'canvas' argument must be of type Canvas.")
         if not 0 <= x_origin <= 1 or not 0 <= y_origin <= 1 or not 0 <= img_width <= 1 or not 0 <= img_height <= 1:
             raise ValueError("The position and dimension arguments must be float values between 0 and 1 (inclusive).")
-        canvas.drawImage(file_path, x_origin * P_WIDTH, y_origin * P_HEIGHT, img_width * P_WIDTH, img_height * P_HEIGHT, mask)
+        canvas.drawImage(file_path, x_origin * P_WIDTH, y_origin * P_HEIGHT, img_width * P_WIDTH, img_height * P_HEIGHT, "auto")
     except OSError as oserr:
-        print("An error occurred while accessing or opening the file:")
+        print(f"An error occurred while accessing or opening the file {file_path}")
         print(oserr)
     except TypeError as terr:
         print("TypeError: Incorrect input parameter type.")
@@ -72,22 +76,42 @@ def write_text_line(canvas: Canvas, text: str, font: str, size: int, text_color:
     Args:
         canvas (Canvas): The canvas object on which to write the text
         text (str): The text to be written
-        font (str): The font to be used for the text
-        size (int): The font size of the text
+        font (str): The font to be used for the text, e.g. "Times-Roman", "Times-Bold"
+        size (int/float): The font size of the text, float accepted too, e.g. "10", "12.5"
         x (float): The x-coordinate of the starting position of the text as float (percentage of page size)
         y (float): The y-coordinate of the baseline position of the text as float (percentage of page size)
-
+    Raises:
+        - ValueError: If any of the float arguments (x, y)
+            have invalid values, such as negative values or values exceeding the canvas dimensions.
+        - AttributeError: If the specified argument for text in not of string type
+        - TypeError: If any of the arguments is not of expected type
+        - KeyError: If the specified font does not exist in the library
+        - Exception:  If any other unexpected error occurs during the execution of the function
+        
     Returns:
         None
     """
     try:
+        if not isinstance(canvas, Canvas):
+            raise TypeError("The 'canvas' argument must be of type Canvas.")
+        if not 0 <= x <= 1 or not 0 <= y <= 1:
+            raise ValueError("The position and dimension arguments must be float values between 0 and 1 (inclusive).")
         canvas.setFont(font, size)
         canvas.setFillColor(text_color)
         canvas.drawString(x * P_WIDTH, y * P_HEIGHT, text)
+    except AttributeError as aerr:
+        print("The text argument can only be a string!")
+        print(aerr)
     except TypeError as terr:
-        print(f"Type error: {terr}")
+        print("Type error! Make sure you respect the type hints!")
+        print(terr)
     except ValueError as verr:
         print(f"Value error: {verr}")
+    except KeyError as kerr:
+        print(f"{kerr}: this font doesn't exist in the library!")
+    except Exception as err:
+        print("Error: An unexpected error occured!")
+        print(err)
     
 def generate_table(canvas, content: dict):
     """
@@ -96,47 +120,89 @@ def generate_table(canvas, content: dict):
     Args:
         canvas: The canvas object on which to draw the table.
         content (dict): A dictionary containing the table data. The keys represent
-            the headers of the table, and the values are lists representing the rows.
+            the headers of the table, and the values are lists representing the rows
+
+    Raises:
+        TypeError: If the `canvas` argument is not of the expected `Canvas` type
+        KeyError: If the `content` dictionary does not have the required keys
+        ValueError: If any of the float calculations for column widths or row heights
+            result in invalid values
+        Exception: If any other unexpected error occurs during the execution of the function
+        
+    Returns:
+        None
+    """
+    try:
+        if not isinstance(canvas, Canvas):
+            raise TypeError("The 'canvas' argument must be of type Canvas.")
+        headers = list(content.keys())
+        rows = list(zip(*content.values()))
+        data = [headers] + rows
+
+        # create the table given the columns width and rows height
+        col_widths = [0.18 * P_WIDTH, 0.1 * P_WIDTH, 0.1 * P_WIDTH, 0.15 * P_WIDTH, 0.15 * P_WIDTH, 0.15 * P_WIDTH]
+        row_heights = [0.058 * P_HEIGHT, 0.045 * P_HEIGHT, 0.045 * P_HEIGHT, 0.045 * P_HEIGHT, 0.045 * P_HEIGHT]
+        table = Table(data, rowHeights=row_heights, colWidths=col_widths)
+        
+        # define the table style
+        table_style = [
+            ('BACKGROUND', (0, 0), (-1, 0), whitesmoke),
+            ('TEXTCOLOR', (0, 0), (-1, 0), black),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Times-Bold'),
+            ('FONTNAME', (0, 1), (-1, -1), 'Times-Roman'),
+            ('FONTSIZE', (0, 0), (-1, -1), 9),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 10),
+            ('BACKGROUND', (0, 1), (-1, -1), white),
+            ('GRID', (0, 0), (-1, -1), 1, white),
+        ]
+
+        # apply the table style
+        table.setStyle(TableStyle(table_style))
+        
+        # draw the table on canvas
+        table_width, table_height = table.wrapOn(canvas, P_WIDTH * 0.75, P_HEIGHT)
+        x = (P_WIDTH - table_width) / 2
+        y = 0.238 * P_HEIGHT
+        table.drawOn(canvas, x, y)
+    except TypeError as te:
+        print(f"TypeError: {te}")
+    except KeyError as ke:
+        print(f"KeyError: {ke}")
+    except ValueError as ve:
+        print(f"ValueError: {ve}")
+    except Exception as e:
+        print(f"An unexpected error occurred: {e}")
+    
+def generate_barcode(canvas, barcode_value, x, y):
+    """
+    Generates a barcode on a canvas at the specified position
+    
+    Args:
+        barcode_value (str): The value of the barcode to be generated
+        canvas_object (Canvas): The canvas object on which to draw the barcode
+        x (float): The division factor for adjusting the X position of the barcode
+            (e.g., setting x=2 will position the barcode at P_WIDTH/2)
+
+    Raises:
+        TypeError: If the `canvas_object` argument is not of the expected `Canvas` type
+        ValueError: If the provided `x` value is not a positive float
+        Exception: If any other unexpected error occurs during the execution of the function
 
     Returns:
         None
     """
-    headers = list(content.keys())
-    rows = list(zip(*content.values()))
-    data = [headers] + rows
-
-    # create the table given the columns width and rows height
-    col_widths = [0.18 * P_WIDTH, 0.1 * P_WIDTH, 0.1 * P_WIDTH, 0.15 * P_WIDTH, 0.15 * P_WIDTH, 0.15 * P_WIDTH]
-    row_heights = [0.058 * P_HEIGHT, 0.045 * P_HEIGHT, 0.045 * P_HEIGHT, 0.045 * P_HEIGHT, 0.045 * P_HEIGHT]
-    table = Table(data, rowHeights=row_heights, colWidths=col_widths)
-    
-    # define the table style
-    table_style = [
-        ('BACKGROUND', (0, 0), (-1, 0), whitesmoke),
-        ('TEXTCOLOR', (0, 0), (-1, 0), black),
-        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-        ('FONTNAME', (0, 0), (-1, 0), 'Times-Bold'),
-        ('FONTNAME', (0, 1), (-1, -1), 'Times-Roman'),
-        ('FONTSIZE', (0, 0), (-1, -1), 9),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 10),
-        ('BACKGROUND', (0, 1), (-1, -1), white),
-        ('GRID', (0, 0), (-1, -1), 1, white),
-    ]
-
-    # apply the table style
-    table.setStyle(TableStyle(table_style))
-    
-    # draw the table on canvas
-    table_width, table_height = table.wrapOn(canvas, P_WIDTH * 0.75, P_HEIGHT)
-    x = (P_WIDTH - table_width) / 2
-    y = 0.238 * P_HEIGHT
-    table.drawOn(canvas, x, y)
-    
-def generate_barcode(barcode_value, canvas_object, x):
-    canvas_object.setFillColor("black")
-    bill_barcode = code128.Code128(barcode_value, barWidth=1, barHeight=1 * cm, humanReadable=True)
-    bill_barcode.drawOn(canvas_object, (P_WIDTH - bill_barcode.width)/x, 0.085 * P_HEIGHT)
+    try:
+        canvas.setFillColor("black")
+        bill_barcode = code128.Code128(barcode_value, barWidth=1, barHeight=1 * cm, humanReadable=True)
+        bill_barcode.drawOn(canvas, (P_WIDTH - bill_barcode.width) / x, y * P_HEIGHT)
+    except TypeError as terr:
+        print(f"TypeError: {terr}")
+    except ValueError as verr:
+        print(f"ValueError: {verr}")
+    except Exception as err:
+        print(f"An unexpected error occurred: {err}")
 
 def generate_pdf_bill(file_name: str, client_info: dict, bill_info: dict, bill_details: dict):    
 
@@ -144,10 +210,10 @@ def generate_pdf_bill(file_name: str, client_info: dict, bill_info: dict, bill_d
     bill_canvas = Canvas(file_name, pagesize=PAGE_SIZE)
     
     # Insert the logo and different icons in the canvas
-    draw_img(bill_canvas, ICONS_PATH / COMPANY_LOGO_FILE, 0.645, 0.8, 0.159, 0.143, "auto")
-    draw_img(bill_canvas, ICONS_PATH / LOCATION_ICON_FILE, 0.111, 0.862, 0.011, 0.014, "auto")
-    draw_img(bill_canvas, ICONS_PATH / PHONE_ICON_FILE, 0.111, 0.826, 0.011, 0.013, "auto")
-    draw_img(bill_canvas, ICONS_PATH / EMAIL_ICON_FILE, 0.111, 0.806, 0.014, 0.007, "auto")
+    draw_img(bill_canvas, ICONS_PATH / COMPANY_LOGO_FILE, 0.645, 0.8, 0.159, 0.143)
+    draw_img(bill_canvas, ICONS_PATH / LOCATION_ICON_FILE, 0.111, 0.862, 0.011, 0.014)
+    draw_img(bill_canvas, ICONS_PATH / PHONE_ICON_FILE, 0.111, 0.826, 0.011, 0.013)
+    draw_img(bill_canvas, ICONS_PATH / EMAIL_ICON_FILE, 0.111, 0.806, 0.014, 0.007)
 
     # Insert horizontal lines and a rectangle to visually separate and highlight the content
     bill_canvas.setStrokeColor(lightgrey)
@@ -159,7 +225,7 @@ def generate_pdf_bill(file_name: str, client_info: dict, bill_info: dict, bill_d
     # Insert the information text about the company
     write_text_line(bill_canvas, COMPANY_INFO["name"], "Times-Roman", 25, "green", 0.143, 0.926)
     write_text_line(bill_canvas, COMPANY_INFO["street"], "Times-Roman", 12, "black", 0.143, 0.877)  
-    write_text_line(bill_canvas, COMPANY_INFO["city"], "Times-Roman", 12, "black", 0.143, 0.862)  
+    write_text_line(bill_canvas, COMPANY_INFO["city"], "Times-Roman", 12, "black", 0.143, 0.862)
     write_text_line(bill_canvas, COMPANY_INFO["country"], "Times-Roman", 12, "black", 0.143, 0.847)  
     write_text_line(bill_canvas, COMPANY_INFO["phone"], "Times-Roman", 12, "black", 0.143, 0.826)  
     write_text_line(bill_canvas, COMPANY_INFO["email"], "Times-Roman", 12, "black", 0.143, 0.806)  
@@ -191,7 +257,7 @@ def generate_pdf_bill(file_name: str, client_info: dict, bill_info: dict, bill_d
     write_text_line(bill_canvas, "60.51", "Times-Roman", 12, "black", 0.818, 0.164)
 
     # Insert the text under the barcodes
-    write_text_line(bill_canvas, "Cod de bare pentru factura curenta", "Times-Bold", 9, "black", 0.19, 0.05)
+    write_text_line(bill_canvas, "Cod de bare pentru factura curenta", "Times-Bold", 9, "black", 0.165, 0.05)
     write_text_line(bill_canvas, "Cod de bare pentru total de plata (sold)", "Times-Bold", 9, "black", 0.6, 0.05)
 
     # Insert the table containing the details about bill consumption and price calculations
@@ -202,8 +268,8 @@ def generate_pdf_bill(file_name: str, client_info: dict, bill_info: dict, bill_d
     TOTAL_VALUE_BARCODE = f"{bill_info['bill_date'].replace('.','')}{bill_info['numar']}{6051}"
 
     # Insert the barcodes in image format in the canvas
-    generate_barcode(CURRENT_BILL_VALUE_BARCODE, bill_canvas, 5)
-    generate_barcode(TOTAL_VALUE_BARCODE, bill_canvas, 1.2)
+    generate_barcode(bill_canvas, CURRENT_BILL_VALUE_BARCODE, 6, 0.085)
+    generate_barcode(bill_canvas, TOTAL_VALUE_BARCODE, 1.2, 0.085)
 
     # Save the modifications for the pdf export
     bill_canvas.showPage()

@@ -32,4 +32,6 @@ BILL_DETAILS = {
 try:
     generate_pdf_bill(PDF_FILE_NAME, CLIENT_INFO, BILL_INFO, BILL_DETAILS)
 except TypeError as terr:
-    print(f"")
+    print(terr)
+except Exception as err:
+    print(err)
