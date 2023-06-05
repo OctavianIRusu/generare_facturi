@@ -6,59 +6,50 @@ ROOT = Path(__file__).parent
 DB_FILE = ROOT / "bill_database.sqlite"
 
 # Create a connection to the database
-connection = sqlite3.connect(DB_FILE)
-cursor = connection.cursor()
+def open_database():
+    connection = sqlite3.connect(DB_FILE)
+    return connection
+    
+def perform_database_operation(connection):
+    cursor = connection.cursor()
+    return cursor
 
-# Create a table if it doesn't exist
-cursor.execute('''
-    CREATE TABLE IF NOT EXISTS entries (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT NOT NULL,
-        street TEXT NOT NULL,
-        zipcode TEXT NOT NULL,
-        city TEXT NOT NULL,
-        county TEXT NOT NULL,
-        username TEXT NOT NULL,
-        password TEXT NOT NULL,
-        role TEXT NOT NULL
-    )
-''')
+def close_database(connection):
+    connection.close()
 
-def new_user():
-    name = input("Enter name: ")
-    street = input("Enter street: ")
-    zipcode = input("Enter zipcode: ")
-    city = input("Enter city: ")
-    county = input("Enter county: ")
-    username = input("Enter username: ")
-    password = input("Enter password: ")
-    role = input("Enter role (user/admin): ")
+def view_users(cursor):
+    cursor.execute('''
+        SELECT * FROM users                   
+    ''')
+    rows = cursor.fetchall()
+    for row in rows:
+        print(row)
+
+def add_new_user(connection, cursor):
+    name = input("Introdu prenume si nume: ")
+    street = input("Introdu adresa (strada, nr, bloc, apartament): ")
+    zipcode = input("Introdu codul postal: ")
+    city = input("Introdu localitatea: ")
+    county = input("Introdu judetul: ")
+    username = input("Introdu un nume de utilizator: ")
+    password = input("Introdu o parola: ")
+    role = input("Alege tip user (user/admin): ")
     
     cursor.execute('''
-        INSERT INTO entries (name, street, zipcode, city, county, username, password, role)
+        INSERT INTO users (name, street, zipcode, city, county, username, password, role)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     ''', (name, street, zipcode, city, county, username, password, role))
     connection.commit()
-    print("Entry created successfully!")
-    connection.close()  
+    print("-" * 60)
+    print("Client nou adaugat cu succes!")
 
 
-def get_client_info(id):
-    
-    cursor.execute("SELECT * FROM users")
-    rows = cursor.fetchall()
-
-    users = []
-    for row in rows:
-        entry = {
-            "id": row[0],
-            "name": row[1],
-            "street": row[2],
-            "zipcode": row[3],
-            "city": row[4],
-            "county": row[5]
-        }
-        users.append(entry)
-        
-
-    return users[id]
+def get_client_info(username, cursor):
+    cursor.execute("SELECT * FROM users WHERE username = ?", (username,))
+    row = cursor.fetchone()
+    if row:
+        columns = [desc[0] for desc in cursor.description]
+        user_dict = dict(zip(columns, row))
+        return user_dict
+    else:
+        return None

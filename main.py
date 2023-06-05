@@ -1,11 +1,8 @@
 import time
 from generate_bill import generate_pdf_bill
-from bill_database import new_user, get_client_info, cursor
+from bill_database import open_database, perform_database_operation, close_database, view_users, add_new_user, get_client_info
 
 PDF_FILE_NAME = "factura_greenergy xx-xxxxxx.pdf"
-
-# Define a dictionary that stores information about the client
-CLIENT_INFO = get_client_info(3)
 
 # Define a dictionary that stores identification information about the current bill
 BILL_INFO = {
@@ -26,9 +23,8 @@ BILL_DETAILS = {
     "Valoare TVA (19%)": [23.7, 0.1, 1.21, -15.36]
 }
 
-generate_pdf_bill(PDF_FILE_NAME, CLIENT_INFO, BILL_INFO, BILL_DETAILS)
 
-def authenticate(username, password):
+def authenticate(username, password, cursor):
     cursor.execute("SELECT role FROM users WHERE username = ? AND password = ?", (username, password))
     result = cursor.fetchone()
     if result:
@@ -52,14 +48,16 @@ def display_admin_menu():
     print("4. Sterge un client")
     print("5. Delogare")
 
-def handle_menu_choice(choice, is_admin, username):
+def handle_menu_choice(choice, is_admin, username, connection, cursor):
     if is_admin:
         if choice == 1:
-            # View records logic for admin
-            print("Vizualizare intrari din baza de date!")
+            view_users(cursor)
+            print("-" * 60)
+            time.sleep(2)
         elif choice == 2:
-            # Add record logic for admin
-            print("Adaugare intrare noua in baza de date!")
+            add_new_user(connection, cursor)
+            print("-" * 60)
+            time.sleep(2)
         elif choice == 3:
             # Update record logic for admin
             print("Modificare intrare existenta in baza de date!")
@@ -67,14 +65,13 @@ def handle_menu_choice(choice, is_admin, username):
             # Delete record logic for admin
             print("Stergere intrare din baza de date!")
         elif choice == 5:
-            print(f"Ai fost delogat! La revedere, {username}!")
+            print(f"Ai fost delogat/a! La revedere, {username}!")
             quit()
         else:
             print("Optiune invalida. Incearca una dintre variantele 1-5.")
     else:
         if choice == 1:
-            # Generate PDF logic for user
-            print("Genereaza ultima factura in format PDF!")
+            generate_pdf_bill(PDF_FILE_NAME, get_client_info(username, cursor), BILL_INFO, BILL_DETAILS)
         elif choice == 2:
             # Generate Excel logic for user
             print("Genereaza un export xls cu consumul tau din anul curent!")
@@ -82,41 +79,47 @@ def handle_menu_choice(choice, is_admin, username):
             # Add Energy Consumption logic for user
             print("Adauga indexul pentru luna curenta!")
         elif choice == 4:
-            print(f"Ai fost delogat! La revedere, {username}!")
+            print(f"Ai fost delogat/a! La revedere, {username}!")
             quit()
         else:
             print("Optiune invalida. Incearca una dintre variantele 1-4.")
 
 def main():
+    connection = open_database()
+    cursor = perform_database_operation(connection)
+    
     print("Bine ai venit! Pentru a continua este necesara autentificarea!")
     username = input("Introduceti numele de utilizator: ")
     password = input("Introduceti parola: ")
 
-    authenticated, is_admin = authenticate(username, password)
+    authenticated, is_admin = authenticate(username, password, cursor)
     if authenticated:
         if is_admin:
-            print("-" * 20)
-            print(f"Salut, {username}! Ai fost autentificat ca admin.")
-            print("-" * 20)
+            print("-" * 60)
+            print(f"Salut, {username}! Ai fost autentificat/a ca admin.")
+            print("-" * 60)
             time.sleep(2)
             while True:
+                print("-" * 60)
                 display_admin_menu()
-                print("-" * 20)
+                print("-" * 60)
                 choice = int(input("Alege optiunea din meniu (1-5): "))
-                print("-" * 20)
-                handle_menu_choice(choice, is_admin, username)
+                print("-" * 60) 
+                handle_menu_choice(choice, is_admin, username, connection, cursor)
         else:
-            print("-" * 20)
-            print(f"Salut, {username}! Ai fost autentificat ca user.")
-            print("-" * 20)
+            print("-" * 60)
+            print(f"Salut, {username}! Ai fost autentificat/a ca user.")
+            print("-" * 60)
             time.sleep(2)
             while True:
+                print("-" * 60)
                 display_user_menu()
-                print("-" * 20)
+                print("-" * 60)
                 choice = int(input("Alege optiunea din meniu (1-4): "))
-                print("-" * 20)
-                handle_menu_choice(choice, is_admin, username)
+                print("-" * 60) 
+                handle_menu_choice(choice, is_admin, username, connection, cursor)
     else:
         print("Autentificare esuata! Nume de utilizator sau parola gresita!")
 
+    close_database(connection)
 main()
