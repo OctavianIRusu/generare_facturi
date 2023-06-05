@@ -7,6 +7,50 @@ from reportlab.lib.units import cm
 from reportlab.pdfgen.canvas import Canvas
 from reportlab.platypus import Table, TableStyle
 
+ROMANIAN_COUNTIES_ABBR = {
+    "Alba": "AB",
+    "Arad": "AR",
+    "Arges": "AG",
+    "Bacau": "BC",
+    "Bihor": "BH",
+    "Bistrita-Nasaud": "BN",
+    "Botosani": "BT",
+    "Brasov": "BV",
+    "Braila": "BR",
+    "Buzau": "BZ",
+    "Caras-Severin": "CS",
+    "Calarasi": "CL",
+    "Cluj": "CJ",
+    "Constanta": "CT",
+    "Covasna": "CV",
+    "Dambovita": "DB",
+    "Dolj": "DJ",
+    "Galati": "GL",
+    "Giurgiu": "GR",
+    "Gorj": "GJ",
+    "Harghita": "HR",
+    "Hunedoara": "HD",
+    "Ialomita": "IL",
+    "Iasi": "IS",
+    "Ilfov": "IF",
+    "Maramures": "MM",
+    "Mehedinti": "MH",
+    "Mures": "MS",
+    "Neamt": "NT",
+    "Olt": "OT",
+    "Prahova": "PH",
+    "Satu Mare": "SM",
+    "Salaj": "SJ",
+    "Sibiu": "SB",
+    "Suceava": "SV",
+    "Teleorman": "TR",
+    "Timis": "TM",
+    "Tulcea": "TL",
+    "Vaslui": "VS",
+    "Valcea": "VL",
+    "Vrancea": "VN"
+}
+
 # Set the root folder path and icons folder path
 MAIN_FOLDER_ROOT = Path(__file__).parent
 ICONS_PATH = MAIN_FOLDER_ROOT / "icons"
@@ -29,7 +73,30 @@ COMPANY_INFO = {
     "country": "Romania",
     "phone": "021-336 5503",
     "email": "contact@greenergy.ro"
+} 
+
+# Define a dictionary that stores the detailed information about the consumption and price
+BILL_DETAILS = {
+    "Produse si servicii": ["Energie consumata", "Acciza necomerciala", "Certificate verzi", "OUG 27"],
+    "Cantitate": [89, 0.089, 0.089, -89],
+    "U.M.": ["kWh", "MWh", "MWh", "kWh"],
+    "Pret unitar fara TVA": [1.40182, 6.05000, 71.68059, 0.90812],
+    "Valoare fara TVA": [124.76, 0.54, 6.38, -80.82],
+    "Valoare TVA (19%)": [23.7, 0.1, 1.21, -15.36]
 }
+
+# Define a dictionary that stores identification information about the current bill
+BILL_INFO = {
+    "serie": "CJ",
+    "numar": "310423001",
+    "bill_date": "27.04.2023",
+    "due_date": "29.05.2023",
+    "date_interval": "01.03.2023 - 31.03.2023"
+}
+
+def set_file_name(county, bill_id):
+    pdf_name = f"factura_greenergy_{ROMANIAN_COUNTIES_ABBR[county].lower}-{bill_id}"
+    return pdf_name
 
 def draw_img(canvas: Canvas, file_path: Path, x_origin: float, y_origin: float, img_width: float, img_height: float):
     """
@@ -140,7 +207,7 @@ def generate_table(canvas, content: dict):
         data = [headers] + rows
 
         # create the table given the columns width and rows height
-        col_widths = [0.18 * P_WIDTH, 0.1 * P_WIDTH, 0.1 * P_WIDTH, 0.15 * P_WIDTH, 0.15 * P_WIDTH, 0.15 * P_WIDTH]
+        col_widths = [0.15 * P_WIDTH, 0.1 * P_WIDTH, 0.1 * P_WIDTH, 0.15 * P_WIDTH, 0.15 * P_WIDTH, 0.15 * P_WIDTH]
         row_heights = [0.058 * P_HEIGHT, 0.045 * P_HEIGHT, 0.045 * P_HEIGHT, 0.045 * P_HEIGHT, 0.045 * P_HEIGHT]
         table = Table(data, rowHeights=row_heights, colWidths=col_widths)
         
@@ -163,7 +230,7 @@ def generate_table(canvas, content: dict):
         
         # draw the table on canvas
         table_width, table_height = table.wrapOn(canvas, P_WIDTH * 0.75, P_HEIGHT)
-        x = (P_WIDTH - table_width) / 2
+        x = 0.1 * P_WIDTH
         y = 0.238 * P_HEIGHT
         table.drawOn(canvas, x, y)
     except TypeError as te:
@@ -263,6 +330,7 @@ def generate_pdf_bill(file_name: str, client_info: dict, bill_info: dict, bill_d
         write_text_line(bill_canvas, client_info["name"].upper(), "Times-Bold", 13, "black", 0.143, 0.741)
         write_text_line(bill_canvas, client_info["street"], "Times-Roman", 12, "black", 0.143, 0.719)
         write_text_line(bill_canvas, f"{client_info['zipcode']}, {client_info['city'].upper()}, Judetul {client_info['county']}", "Times-Roman", 12, "black", 0.143, 0.699)
+        write_text_line(bill_canvas, f"Cod client: {client_info['id']}", "Times-Roman", 12, "black", 0.143, 0.680)
 
         # Insert the information about the bill value
         write_text_line(bill_canvas, "Detalii factura curenta:", "Times-Bold", 24, "green", 0.111, 0.588)
@@ -270,10 +338,10 @@ def generate_pdf_bill(file_name: str, client_info: dict, bill_info: dict, bill_d
         write_text_line(bill_canvas, f"{COMPANY_INFO['name'].upper()} HOME ELECTRIC", "Times-Bold", 14, "black", 0.111, 0.556)
         write_text_line(bill_canvas, "60.51  lei", "Times-Bold", 14, "black", 0.769, 0.556)
         write_text_line(bill_canvas, "Total", "Times-Bold", 10, "black", 0.15, 0.204)
-        write_text_line(bill_canvas, "50.86", "Times-Bold", 10, "black", 0.670, 0.204)
-        write_text_line(bill_canvas, "9.65", "Times-Bold", 10, "black", 0.825, 0.204)
+        write_text_line(bill_canvas, "50.86", "Times-Bold", 10, "black", 0.657, 0.204)
+        write_text_line(bill_canvas, "9.65", "Times-Bold", 10, "black", 0.813, 0.204)
         write_text_line(bill_canvas, "Total de plata, TVA inclus [Lei]", "Times-Roman", 12, "black", 0.11, 0.164)
-        write_text_line(bill_canvas, "60.51", "Times-Roman", 12, "black", 0.818, 0.164)
+        write_text_line(bill_canvas, "60.51", "Times-Roman", 12, "black", 0.808, 0.164)
 
         # Insert the text under the barcodes
         write_text_line(bill_canvas, "Cod de bare pentru factura curenta", "Times-Bold", 9, "black", 0.165, 0.05)
@@ -299,3 +367,5 @@ def generate_pdf_bill(file_name: str, client_info: dict, bill_info: dict, bill_d
         print(f"ValueError: {verr}")
     except Exception as err:
         print(f"An unexpected error occurred: {err}")
+    else:
+        print("Factura a fost generata cu succes!")
