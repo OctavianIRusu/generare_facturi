@@ -1,12 +1,17 @@
 import calendar
-from datetime import date
-from dateutil.relativedelta import relativedelta
+import os
 import sqlite3
+from datetime import date
 from pathlib import Path
 
+import openpyxl
+import pandas as pd
+from dateutil.relativedelta import relativedelta
+from openpyxl.chart import BarChart, Reference
+
 # Set the root folder path and database path
-ROOT = Path(__file__).parent
-DB_FILE = ROOT / "bill_database.sqlite"
+MAIN_FOLDER_ROOT = Path(__file__).parent
+DB_FILE = MAIN_FOLDER_ROOT / "bill_database.sqlite"
 
 # Dictionary that maps Romanian counties to their corresponding abbreviations
 ROMANIAN_COUNTIES_ABBR = {
@@ -76,6 +81,9 @@ CONSUMPTION_DETAILS = {
     "Valoare TVA (19%)": []
 }
 
+# connection = sqlite3.connect(DB_FILE)
+# cursor = connection.cursor()
+
 def open_database():
     connection = sqlite3.connect(DB_FILE)
     return connection
@@ -124,8 +132,6 @@ def add_new_user(connection, cursor):
     connection.commit()
     print("-" * 60)
     print("Noul client a fost adaugat cu succes!")
-
-
     
 def get_client_info(username, cursor):
     cursor.execute("SELECT * FROM users WHERE username = ?", (username,))
@@ -285,7 +291,37 @@ def generate_bill_input():
     bill_month = int(input("Introdu luna pentru care vrei sa generezi factura PDF: "))
     return bill_year, bill_month
 
-def provide_new_index(cursor, connection, username, bill_year, bill_month, index_value):
+def generate_excel_input():
+    bill_year = int(input("Introdu anul pentru care vrei sa generezi exportul excel: "))
+    return bill_year
+
+def set_excel_name(username, bill_year, bill_serial):
+    excel_name = f"export_consum_{username}-{bill_year}.xlsx"
+    excel_folder = MAIN_FOLDER_ROOT / "Exporturi excel" / bill_serial
+    if not os.path.exists(excel_folder):
+        os.makedirs(excel_folder)
+    return str(excel_folder / excel_name)
+
+def export_excel_table(cursor, username, bill_year):
+    cursor.execute("""SELECT username, bill_year, bill_month, bill_serial,
+        bill_number, index_value, energ_cons_cant, energ_cons_pret, 
+        energ_cons_val, energ_cons_tva, acciza_cant, acciza_pret, 
+        acciza_val, acciza_tva, certif_cant, certif_pret, certif_val, 
+        certif_tva, oug_cant, oug_pret, oug_val, oug_tva, total_fara_tva, 
+        total_tva, total_bill_value FROM bills
+        WHERE username = ? AND bill_year = ?
+        ORDER BY bill_month ASC""",
+        (username, bill_year))
+    rows = cursor.fetchall()
+    columns = [desc[0] for desc in cursor.description]
+    df = pd.DataFrame(rows, columns=columns)
+    bill_serial = ROMANIAN_COUNTIES_ABBR[get_client_info(username, cursor)["county"]]
+    excel_name = set_excel_name(username, bill_year, bill_serial)
+    df.to_excel(excel_name, index=False)
+    print("-" * 60)
+    print(f"Exportul excel pentru anul {bill_year} a fost generat cu succes!")
+
+def provide_new_index(connection, cursor, username, bill_year, bill_month, index_value):
     cursor.execute("""
         INSERT INTO bills (user_id, username, bill_year, bill_month, bill_generated_date, bill_serial, 
         bill_number, bill_due_date, bill_start_date, bill_end_date,

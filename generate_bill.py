@@ -17,13 +17,13 @@ ICONS_PATH = MAIN_FOLDER_ROOT / "icons"
 PAGE_SIZE = LETTER
 P_WIDTH, P_HEIGHT = PAGE_SIZE
 
-# Define the file paths for the logo and various icon images used in the application
+# File paths for the logo and the icon images used in the application
 COMPANY_LOGO_FILE = "greenergy_icon.png"
 LOCATION_ICON_FILE = "location_icon.png"
 PHONE_ICON_FILE = "phone_icon.png"
 EMAIL_ICON_FILE = "email_icon.png"
 
-# Define a dictionary named COMPANY_INFO that stores information about the electrical company
+# Dictionary that stores information about the electrical company
 COMPANY_INFO = {
     "name": "Greenergy",
     "street": "Bulevardul Ion C. Bratianu nr. 44",
@@ -35,40 +35,39 @@ COMPANY_INFO = {
 
 
 
-# # Define a dictionary that stores identification information about the current bill
-# BILL_INFO = {
-#     "serie": "CJ",
-#     "numar": "310423001",
-#     "bill_date": "27.04.2023",
-#     "due_date": "29.05.2023",
-#     "date_interval": "01.03.2023 - 31.03.2023"
-# }
-
-def set_file_name(bill_serial, bill_number):
-    pdf_name = f"factura_{COMPANY_INFO['name'].lower()}_{bill_serial}-{bill_number}.pdf"
+def set_pdf_name(bill_serial, bill_number):
+    pdf_name = f"factura_{COMPANY_INFO['name'].lower()}"\
+        f"_{bill_serial}-{bill_number}.pdf"
     pdf_bills_folder = MAIN_FOLDER_ROOT / "Facturi generate" / bill_serial
     if not os.path.exists(pdf_bills_folder):
         os.makedirs(pdf_bills_folder)
     return str(pdf_bills_folder / pdf_name)
 
-def draw_img(canvas: Canvas, file_path: Path, x_origin: float, y_origin: float, img_width: float, img_height: float):
+def draw_img(canvas, file_path, x_origin, y_origin, img_width, img_height):
     """
     Inserts an image within a canvas
     
     Args:
     - canvas (Canvas): The canvas where the image will be inserted
     - file_path (str): The path to the image file that will be inserted
-    - xbl_origin (float): The x-coordinate of the bottom-left corner of the image (percentage of the page size, e.g. 0.85)
-    - ybl_origin (float): The y-coordinate of the bottom-left corner of the image (percentage of the page size, e.g. 0.85)
-    - img_width (float): The width of the image (percentage of the page size, e.g. 0.85)
-    - img_height (float): The height of the image (percentage of the page size, e.g. 0.85)
+    - x_origin (float): The x-coordinate of the bottom-left corner of the image 
+        (percentage of the page size, e.g. 0.85)
+    - y_origin (float): The y-coordinate of the bottom-left corner of the image 
+        (percentage of the page size, e.g. 0.85)
+    - img_width (float): The width of the image 
+        (percentage of the page size, e.g. 0.85)
+    - img_height (float): The height of the image 
+        (percentage of the page size, e.g. 0.85)
     
     Raises:
-    - ValueError: If any of the float arguments (`x_origin`, `y_origin`, `img_width`, `img_height`)
-            have invalid values, such as negative values or values exceeding the canvas dimensions.
+    - ValueError: If any of the float arguments 
+        (`x_origin`, `y_origin`, `img_width`, `img_height`)
+        have invalid values, such as negative values 
+        or values exceeding the canvas dimensions
     - OSError: If the specified file cannot be accessed or opened
     - TypeError: If any of the arguments is not of expected type
-    - Exception:  If any other unexpected error occurs during the execution of the function
+    - Exception: If any other unexpected error occurs during 
+        the execution of the function
             
     Returns:
         None
@@ -89,24 +88,27 @@ def draw_img(canvas: Canvas, file_path: Path, x_origin: float, y_origin: float, 
         print("Error: An unexpected error occured!")
         print(err)
     
-def write_text_line(canvas: Canvas, text: str, font: str, size: int, text_color: str, x: float, y: float):
+def write_text_line(canvas, text, font, size, text_color, x, y):
     """
-    Writes a single line of text on the given canvas at the specified coordinates
+    Writes a single line of text on the given canvas at specified coordinates
 
     Args:
         canvas (Canvas): The canvas object on which to write the text
         text (str): The text to be written
-        font (str): The font to be used for the text, e.g. "Times-Roman", "Times-Bold"
-        size (int/float): The font size of the text, float accepted too, e.g. "10", "12.5"
-        x (float): The x-coordinate of the starting position of the text as float (percentage of page size)
-        y (float): The y-coordinate of the baseline position of the text as float (percentage of page size)
+        font (str): The font to be used for the text, e.g. "Times-Roman"
+        size (int): The font size of the text, float accepted too, e.g. "10"
+        x (float): The x-coordinate of the starting position of the text 
+            as float (percentage of page size)
+        y (float): The y-coordinate of the baseline position of the text 
+            as float (percentage of page size)
     Raises:
-        - ValueError: If any of the float arguments (x, y)
-            have invalid values, such as negative values or values exceeding the canvas dimensions.
-        - AttributeError: If the specified argument for text in not of string type
+        - ValueError: If any of the float arguments (x, y) have invalid values, 
+            such as negative values or values exceeding the canvas dimensions.
+        - AttributeError: If the specified argument for text is not string
         - TypeError: If any of the arguments is not of expected type
         - KeyError: If the specified font does not exist in the library
-        - Exception:  If any other unexpected error occurs during the execution of the function
+        - Exception: If any other unexpected error occurs
+            during the execution of the function
         
     Returns:
         None

@@ -1,22 +1,23 @@
 import time
-from generate_bill import generate_pdf_bill, set_file_name
+from generate_bill import generate_pdf_bill, set_pdf_name
 from bill_database import (open_database, perform_database_operation, 
     close_database, view_users, add_new_user, get_client_info, get_bill_info, 
     provide_new_index, get_index_input, authenticate, generate_bill_input, 
-    create_consumption_table)
+    create_consumption_table, generate_excel_input, export_excel_table)
 
 def display_user_menu():
-    print("1. Genereaza factura in format PDF")
-    print("2. Genereaza export xls cu consumul din anul curent")
+    print("1. Genereaza factura lunara in format PDF")
+    print("2. Genereaza export excel cu consumul anual")
     print("3. Adauga index contor energie electrica")
     print("4. Delogare")
 
 def display_admin_menu():
     print("1. Vezi clientii existenti")
     print("2. Adauga un client")
-    print("3. Modifica informatiile pentru un client existent")
-    print("4. Sterge un client")
-    print("5. Delogare")
+    print("3. Modifica informatiile pentru un client sau un index existent")
+    print("4. Modifica un index existent")
+    print("5. Sterge un client")
+    print("6. Delogare")
 
 def handle_admin_menu(choice, username, connection, cursor):
     if choice == 1:
@@ -28,12 +29,12 @@ def handle_admin_menu(choice, username, connection, cursor):
         print("-" * 60)
         time.sleep(1.5)
     elif choice == 3:
-        # Update record logic for admin
-        print("Modificare informatii client/index existent in baza de date!")
+        pass
     elif choice == 4:
-        # Delete record logic for admin
-        print("Stergere client din baza de date!")
+        pass
     elif choice == 5:
+        print("Stergere client din baza de date!")
+    elif choice == 6:
         print(f"Ai fost delogat/a! La revedere, {username}!")
         quit()
     else:
@@ -41,21 +42,25 @@ def handle_admin_menu(choice, username, connection, cursor):
             
 def handle_user_menu(choice, username, connection, cursor):            
     if choice == 1:
+        # generare factura in pdf
         bill_year, bill_month = generate_bill_input()
         bill_serial = get_bill_info(username, bill_year, bill_month, cursor)["bill_serial"]
         bill_number = get_bill_info(username, bill_year, bill_month, cursor)["bill_number"]
-        file_name = set_file_name(bill_serial, bill_number)
+        file_name = set_pdf_name(bill_serial, bill_number)
         client_info = get_client_info(username, cursor)
         bill_info = get_bill_info(username, bill_year, bill_month, cursor)
         bill_details = create_consumption_table(username, bill_year, bill_month, cursor)
         generate_pdf_bill(file_name, client_info, bill_info, bill_details)
     elif choice == 2:
-        # Generate Excel logic for user
-        print("Genereaza un export xls cu consumul tau din anul curent!")
+        # generare export in excel
+        bill_year = generate_excel_input()
+        export_excel_table(cursor, username, bill_year)
     elif choice == 3:
+        # adaugare index consum
         bill_year, bill_month, index_value = get_index_input(cursor, username)
-        provide_new_index(cursor, connection, username, bill_year, bill_month, index_value)
+        provide_new_index(connection, cursor, username, bill_year, bill_month, index_value)
     elif choice == 4:
+        # delogare
         print(f"Ai fost delogat/a! La revedere, {username}!")
         quit()
     else:
@@ -75,9 +80,9 @@ def main():
         if is_admin:
             print("-" * 60)
             print(f"Salut, {username}! Ai fost autentificat/a ca admin.")
-            time.sleep(1.5)
             while True:
                 print("-" * 60)
+                time.sleep(1.5)
                 display_admin_menu()
                 print("-" * 60)
                 choice = int(input("Alege optiunea din meniu (1-5): "))
@@ -86,9 +91,9 @@ def main():
         else:
             print("-" * 60)
             print(f"Salut, {username}! Ai fost autentificat/a ca user.")
-            time.sleep(1.5)
             while True:
                 print("-" * 60)
+                time.sleep(1.5)
                 display_user_menu()
                 print("-" * 60)
                 choice = int(input("Alege optiunea din meniu (1-4): "))
