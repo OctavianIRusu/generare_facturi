@@ -1,23 +1,9 @@
 import time
-from datetime import date
-from generate_bill import generate_pdf_bill
+from generate_bill import generate_pdf_bill, set_file_name
 from bill_database import (open_database, perform_database_operation, 
-    close_database, get_romanian_month_name, view_users, add_new_user, 
-    get_client_info, provide_new_index, calculate_cons)
-
-PDF_FILE_NAME = "factura_greenergy xx-xxxxxx.pdf"
-
-def authenticate(username, password, cursor):
-    cursor.execute("""SELECT role FROM users 
-        WHERE username = ? AND password = ?""", (username, password))
-    result = cursor.fetchone()
-    if result:
-        role = result[0]
-        if role == 'admin':
-            return True, True
-        else:
-            return True, False
-    return False, False
+    close_database, view_users, add_new_user, get_client_info, get_bill_info, 
+    provide_new_index, get_index_input, authenticate, generate_bill_input, 
+    create_consumption_table)
 
 def display_user_menu():
     print("1. Genereaza factura in format PDF")
@@ -36,50 +22,45 @@ def handle_admin_menu(choice, username, connection, cursor):
     if choice == 1:
         view_users(cursor)
         print("-" * 60)
-        time.sleep(2)
+        time.sleep(1.5)
     elif choice == 2:
         add_new_user(connection, cursor)
         print("-" * 60)
-        time.sleep(2)
+        time.sleep(1.5)
     elif choice == 3:
         # Update record logic for admin
-        print("Modificare intrare existenta in baza de date!")
+        print("Modificare informatii client/index existent in baza de date!")
     elif choice == 4:
         # Delete record logic for admin
-        print("Stergere intrare din baza de date!")
+        print("Stergere client din baza de date!")
     elif choice == 5:
         print(f"Ai fost delogat/a! La revedere, {username}!")
         quit()
     else:
-        print("Optiune invalida. Incearca una dintre variantele 1-5.")\
+        print("Optiune invalida. Incearca una dintre variantele 1-5.")
             
 def handle_user_menu(choice, username, connection, cursor):            
     if choice == 1:
-        generate_pdf_bill(PDF_FILE_NAME, get_client_info(username, cursor), BILL_INFO, BILL_DETAILS)
+        bill_year, bill_month = generate_bill_input()
+        bill_serial = get_bill_info(username, bill_year, bill_month, cursor)["bill_serial"]
+        bill_number = get_bill_info(username, bill_year, bill_month, cursor)["bill_number"]
+        file_name = set_file_name(bill_serial, bill_number)
+        client_info = get_client_info(username, cursor)
+        bill_info = get_bill_info(username, bill_year, bill_month, cursor)
+        bill_details = create_consumption_table(username, bill_year, bill_month, cursor)
+        generate_pdf_bill(file_name, client_info, bill_info, bill_details)
     elif choice == 2:
         # Generate Excel logic for user
         print("Genereaza un export xls cu consumul tau din anul curent!")
     elif choice == 3:
-        bill_year = int(input("Introdu anul pentru care vrei sa adaugi indexul: "))
-        bill_month = int(input("Introdu luna pentru care vrei sa adaugi indexul: "))
-        while True:
-            index_value = float(input(f"Introdu indexul pentru luna {get_romanian_month_name(bill_month)} {bill_year}: "))
-            cons_data = calculate_cons(cursor, username, bill_year, bill_month, index_value)
-            consumption = cons_data['energ_cons_cant']
-            print(f"Conform acestui index, consumul pentru luna "
-                f"{get_romanian_month_name(bill_month)} {bill_year} va fi de "
-                f"{consumption} kWh.")
-            check_index = input("Doresti sa continui cu acest index? (y/n) ")
-            if check_index.lower() == "y":
-                break
-            elif check_index.lower() == "n":
-                continue
+        bill_year, bill_month, index_value = get_index_input(cursor, username)
         provide_new_index(cursor, connection, username, bill_year, bill_month, index_value)
     elif choice == 4:
         print(f"Ai fost delogat/a! La revedere, {username}!")
         quit()
     else:
         print("Optiune invalida. Incearca una dintre variantele 1-4.")
+
 
 def main():
     connection = open_database()
@@ -94,8 +75,7 @@ def main():
         if is_admin:
             print("-" * 60)
             print(f"Salut, {username}! Ai fost autentificat/a ca admin.")
-            print("-" * 60)
-            time.sleep(2)
+            time.sleep(1.5)
             while True:
                 print("-" * 60)
                 display_admin_menu()
@@ -106,8 +86,7 @@ def main():
         else:
             print("-" * 60)
             print(f"Salut, {username}! Ai fost autentificat/a ca user.")
-            print("-" * 60)
-            time.sleep(2)
+            time.sleep(1.5)
             while True:
                 print("-" * 60)
                 display_user_menu()
@@ -119,4 +98,5 @@ def main():
         print("Autentificare esuata! Nume de utilizator sau parola gresita!")
 
     close_database(connection)
+    
 main()

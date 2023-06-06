@@ -1,4 +1,4 @@
-import traceback
+import os
 from pathlib import Path
 from reportlab.graphics.barcode import code128
 from reportlab.lib.colors import black, lightgrey, white, whitesmoke, green
@@ -6,50 +6,8 @@ from reportlab.lib.pagesizes import LETTER
 from reportlab.lib.units import cm
 from reportlab.pdfgen.canvas import Canvas
 from reportlab.platypus import Table, TableStyle
+from bill_database import PRICE_PER_UNIT, get_bill_info
 
-ROMANIAN_COUNTIES_ABBR = {
-    "Alba": "AB",
-    "Arad": "AR",
-    "Arges": "AG",
-    "Bacau": "BC",
-    "Bihor": "BH",
-    "Bistrita-Nasaud": "BN",
-    "Botosani": "BT",
-    "Brasov": "BV",
-    "Braila": "BR",
-    "Buzau": "BZ",
-    "Caras-Severin": "CS",
-    "Calarasi": "CL",
-    "Cluj": "CJ",
-    "Constanta": "CT",
-    "Covasna": "CV",
-    "Dambovita": "DB",
-    "Dolj": "DJ",
-    "Galati": "GL",
-    "Giurgiu": "GR",
-    "Gorj": "GJ",
-    "Harghita": "HR",
-    "Hunedoara": "HD",
-    "Ialomita": "IL",
-    "Iasi": "IS",
-    "Ilfov": "IF",
-    "Maramures": "MM",
-    "Mehedinti": "MH",
-    "Mures": "MS",
-    "Neamt": "NT",
-    "Olt": "OT",
-    "Prahova": "PH",
-    "Satu Mare": "SM",
-    "Salaj": "SJ",
-    "Sibiu": "SB",
-    "Suceava": "SV",
-    "Teleorman": "TR",
-    "Timis": "TM",
-    "Tulcea": "TL",
-    "Vaslui": "VS",
-    "Valcea": "VL",
-    "Vrancea": "VN"
-}
 
 # Set the root folder path and icons folder path
 MAIN_FOLDER_ROOT = Path(__file__).parent
@@ -75,28 +33,23 @@ COMPANY_INFO = {
     "email": "contact@greenergy.ro"
 } 
 
-# Define a dictionary that stores the detailed information about the consumption and price
-BILL_DETAILS = {
-    "Produse si servicii": ["Energie consumata", "Acciza necomerciala", "Certificate verzi", "OUG 27"],
-    "Cantitate": [89, 0.089, 0.089, -89],
-    "U.M.": ["kWh", "MWh", "MWh", "kWh"],
-    "Pret unitar fara TVA": [1.40182, 6.05000, 71.68059, 0.90812],
-    "Valoare fara TVA": [124.76, 0.54, 6.38, -80.82],
-    "Valoare TVA (19%)": [23.7, 0.1, 1.21, -15.36]
-}
 
-# Define a dictionary that stores identification information about the current bill
-BILL_INFO = {
-    "serie": "CJ",
-    "numar": "310423001",
-    "bill_date": "27.04.2023",
-    "due_date": "29.05.2023",
-    "date_interval": "01.03.2023 - 31.03.2023"
-}
 
-def set_file_name(county, bill_id):
-    pdf_name = f"factura_greenergy_{ROMANIAN_COUNTIES_ABBR[county].lower}-{bill_id}"
-    return pdf_name
+# # Define a dictionary that stores identification information about the current bill
+# BILL_INFO = {
+#     "serie": "CJ",
+#     "numar": "310423001",
+#     "bill_date": "27.04.2023",
+#     "due_date": "29.05.2023",
+#     "date_interval": "01.03.2023 - 31.03.2023"
+# }
+
+def set_file_name(bill_serial, bill_number):
+    pdf_name = f"factura_{COMPANY_INFO['name'].lower()}_{bill_serial}-{bill_number}.pdf"
+    pdf_bills_folder = MAIN_FOLDER_ROOT / "Facturi generate" / bill_serial
+    if not os.path.exists(pdf_bills_folder):
+        os.makedirs(pdf_bills_folder)
+    return str(pdf_bills_folder / pdf_name)
 
 def draw_img(canvas: Canvas, file_path: Path, x_origin: float, y_origin: float, img_width: float, img_height: float):
     """
@@ -318,10 +271,10 @@ def generate_pdf_bill(file_name: str, client_info: dict, bill_info: dict, bill_d
 
         # Insert the information about the current bill
         write_text_line(bill_canvas, "Factura fiscala", "Times-Bold", 13, "black", 0.625, 0.741)
-        write_text_line(bill_canvas, f"Seria {bill_info['serie']} nr. {bill_info['numar']}", "Times-Roman", 12, "black", 0.625, 0.719)
-        write_text_line(bill_canvas, bill_info['bill_date'], "Times-Roman", 12, "black", 0.746, 0.699)
-        write_text_line(bill_canvas, bill_info['due_date'], "Times-Roman", 12, "black", 0.758, 0.680)
-        write_text_line(bill_canvas, bill_info['date_interval'], "Times-Roman", 12, "black", 0.625, 0.643)
+        write_text_line(bill_canvas, f"Seria {bill_info['bill_serial']} nr. {bill_info['bill_number']}", "Times-Roman", 12, "black", 0.625, 0.719)
+        write_text_line(bill_canvas, bill_info['bill_generated_date'], "Times-Roman", 12, "black", 0.746, 0.699)
+        write_text_line(bill_canvas, bill_info['bill_due_date'], "Times-Roman", 12, "black", 0.758, 0.680)
+        write_text_line(bill_canvas, f"{bill_info['bill_start_date']} - {bill_info['bill_end_date']}", "Times-Roman", 12, "black", 0.625, 0.643)
         write_text_line(bill_canvas, "Data facturii:", "Times-Bold", 12, "black", 0.625, 0.699)
         write_text_line(bill_canvas, "Data scadenta:", "Times-Bold", 12, "black", 0.625, 0.680)
         write_text_line(bill_canvas, "Perioada de facturare:", "Times-Bold", 12, "black", 0.625, 0.662)
@@ -336,12 +289,12 @@ def generate_pdf_bill(file_name: str, client_info: dict, bill_info: dict, bill_d
         write_text_line(bill_canvas, "Detalii factura curenta:", "Times-Bold", 24, "green", 0.111, 0.588)
         write_text_line(bill_canvas, "Din ce este compus consumul tau?", "Times-Bold", 15, "green", 0.111, 0.500)
         write_text_line(bill_canvas, f"{COMPANY_INFO['name'].upper()} HOME ELECTRIC", "Times-Bold", 14, "black", 0.111, 0.556)
-        write_text_line(bill_canvas, "60.51  lei", "Times-Bold", 14, "black", 0.769, 0.556)
+        write_text_line(bill_canvas, f"{bill_info['total_bill_value']:.2f}  lei", "Times-Bold", 14, "black", 0.769, 0.556)
         write_text_line(bill_canvas, "Total", "Times-Bold", 10, "black", 0.15, 0.204)
-        write_text_line(bill_canvas, "50.86", "Times-Bold", 10, "black", 0.657, 0.204)
-        write_text_line(bill_canvas, "9.65", "Times-Bold", 10, "black", 0.813, 0.204)
+        write_text_line(bill_canvas, f"{bill_info['total_fara_tva']:.2f}", "Times-Bold", 10, "black", 0.657, 0.204)
+        write_text_line(bill_canvas, f"{bill_info['total_tva']:.2f}", "Times-Bold", 10, "black", 0.813, 0.204)
         write_text_line(bill_canvas, "Total de plata, TVA inclus [Lei]", "Times-Roman", 12, "black", 0.11, 0.164)
-        write_text_line(bill_canvas, "60.51", "Times-Roman", 12, "black", 0.808, 0.164)
+        write_text_line(bill_canvas, f"{bill_info['total_bill_value']:.2f}", "Times-Roman", 12, "black", 0.808, 0.164)
 
         # Insert the text under the barcodes
         write_text_line(bill_canvas, "Cod de bare pentru factura curenta", "Times-Bold", 9, "black", 0.165, 0.05)
@@ -351,8 +304,8 @@ def generate_pdf_bill(file_name: str, client_info: dict, bill_info: dict, bill_d
         generate_table(bill_canvas, bill_details)
         
         # Create strings for barcode generation, one for the current bill and one for total payment (including overdue)
-        CURRENT_BILL_VALUE_BARCODE = f"{bill_info['bill_date'].replace('.','')}{bill_info['numar']}{6051}"
-        TOTAL_VALUE_BARCODE = f"{bill_info['bill_date'].replace('.','')}{bill_info['numar']}{6051}"
+        CURRENT_BILL_VALUE_BARCODE = f"{bill_info['bill_number']}{bill_info['total_bill_value']:.2f}"
+        TOTAL_VALUE_BARCODE = f"{bill_info['bill_number']}{bill_info['total_bill_value']:.2f}"
 
         # Insert the barcodes in image format in the canvas
         generate_barcode(bill_canvas, CURRENT_BILL_VALUE_BARCODE, 6, 0.085)
@@ -368,4 +321,5 @@ def generate_pdf_bill(file_name: str, client_info: dict, bill_info: dict, bill_d
     except Exception as err:
         print(f"An unexpected error occurred: {err}")
     else:
+        print("-" * 60)
         print("Factura a fost generata cu succes!")
