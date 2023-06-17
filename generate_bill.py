@@ -36,8 +36,8 @@ COMPANY_INFO = {
 
 
 def set_pdf_name(bill_serial, bill_number):
-    pdf_name = f"factura_{COMPANY_INFO['name'].lower()}"\
-        f"_{bill_serial}-{bill_number}.pdf"
+    pdf_name = ("factura_{}_{}-{}.pdf".
+                format(COMPANY_INFO['name'].lower(), bill_serial, bill_number))
     pdf_bills_folder = MAIN_FOLDER_ROOT / "Facturi generate" / bill_serial
     if not os.path.exists(pdf_bills_folder):
         os.makedirs(pdf_bills_folder)

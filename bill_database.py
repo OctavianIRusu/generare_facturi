@@ -635,8 +635,8 @@ def get_index_input(cursor: sqlite3.Cursor, username: str) -> tuple:
                 Please enter a value between 2020 and {current_year}.""")
         
         while True:
-            index_value = float(input(f"""Introdu indexul pentru luna 
-                    {get_romanian_month_name(bill_month)} {bill_year}: """))
+            index_value = float(input("Introdu indexul pentru luna {} {}: "
+                .format(get_romanian_month_name(bill_month), bill_year)))
             consumption = calculate_monthly_consumption(cursor, username, 
                     bill_year, bill_month, index_value)
             print(f"Conform acestui index, consumul pentru luna "
@@ -651,7 +651,7 @@ def get_index_input(cursor: sqlite3.Cursor, username: str) -> tuple:
     except TypeError as terr:
         raise ValueError(f"Invalid index value: {str(terr)}")
 
-def generate_bill_input() -> tuple:
+def generate_bill_input(cursor, username) -> tuple:
     """
     Prompts the user to enter the bill year and bill month for generating a
     PDF bill.
@@ -663,20 +663,24 @@ def generate_bill_input() -> tuple:
         ValueError: If the provided bill year or bill month is not a valid integer.
         ValueError: If the provided bill month is out of range (not between 1 and 12).
     """
-    bill_year = int(input(
-            "Introdu anul pentru care vrei sa generezi factura PDF: "))
-    bill_month = int(input(
-            "Introdu luna pentru care vrei sa generezi factura PDF: "))
-    
-    if not 1 <= bill_month <= 12:
-        raise ValueError("""Invalid month. 
-                Please enter a value between 1 and 12.""")
+    try:
+        bill_year = int(input(
+                "Introdu anul pentru care vrei sa generezi factura PDF: "))
+        bill_month = int(input(
+                "Introdu luna pentru care vrei sa generezi factura PDF: "))
         
-    current_year = date.today().year
-    if not 2020 <= bill_year <= current_year:
-        raise ValueError(f"""Invalid Year. 
-                Please enter a value between 2020 and {current_year}.""")
-    return bill_year, bill_month
+        if not 1 <= bill_month <= 12:
+            raise ValueError("""Invalid month. 
+                    Please enter a value between 1 and 12.""")
+            
+        current_year = date.today().year
+        if not 2020 <= bill_year <= current_year:
+            raise ValueError(f"""Invalid Year. 
+                    Please enter a value between 2020 and {current_year}.""")
+        
+        return bill_year, bill_month
+    except TypeError as terr:
+        print(terr)
 
 def generate_excel_input() -> int:
     """
@@ -809,26 +813,41 @@ def provide_new_index(
         """, (
             get_client_info(username, cursor)["id"],
             get_client_info(username, cursor)["username"],
-            bill_year, bill_month, bill_generated_date,
+            bill_year, 
+            bill_month, 
+            bill_generated_date,
             RO_COUNTIES_ABBR[get_client_info(username, cursor)["county"]],
-            f"""{bill_generated_date.strftime('%d%m%y')}
-                {get_client_info(username, cursor)['id']}""",
-            bill_due_date, bill_start_date, bill_end_date, index_value,
-            cons_data["energ_cons_cant"], PRICE_PER_UNIT["energie_consumata"],
-            price_data["energ_cons_val"], price_data["energ_cons_tva"],
-            cons_data["acciza_cant"], PRICE_PER_UNIT["acciza_necomerciala"],
-            price_data["acciza_val"], price_data["acciza_tva"],
-            cons_data["certif_cant"], PRICE_PER_UNIT["certificate_verzi"],
-            price_data["cerif_val"], price_data["certif_tva"],
-            cons_data["oug_cant"], PRICE_PER_UNIT["oug_27"],
-            price_data["oug_val"], price_data["oug_tva"],
-            price_data["total_fara_tva"], price_data["total_tva"],
+            "{}{}".format(bill_generated_date.strftime('%d%m%y'), 
+                str(get_client_info(username, cursor)['id']).zfill(6)),
+            bill_due_date, 
+            bill_start_date, 
+            bill_end_date, 
+            index_value,
+            cons_data["energ_cons_cant"], 
+            PRICE_PER_UNIT["energie_consumata"],
+            price_data["energ_cons_val"], 
+            price_data["energ_cons_tva"],
+            cons_data["acciza_cant"], 
+            PRICE_PER_UNIT["acciza_necomerciala"],
+            price_data["acciza_val"], 
+            price_data["acciza_tva"],
+            cons_data["certif_cant"], 
+            PRICE_PER_UNIT["certificate_verzi"],
+            price_data["cerif_val"], 
+            price_data["certif_tva"],
+            cons_data["oug_cant"], 
+            PRICE_PER_UNIT["oug_27"],
+            price_data["oug_val"], 
+            price_data["oug_tva"],
+            price_data["total_fara_tva"], 
+            price_data["total_tva"],
             price_data["total_bill_value"]
         ))
         connection.commit()
         print("-" * 60)
-        print(f"""Consumul pentru luna {get_romanian_month_name(bill_month)} 
-                {bill_year} a fost inregistrat cu succes!""")
+        print("Consumul pentru luna {} {} a fost inregistrat cu succes!".
+              format(get_romanian_month_name(bill_month), bill_year))
+        print("-" * 60)
     except ValueError as verr:
         raise ValueError(f"Invalid bill month or year: {str(verr)}")
 
