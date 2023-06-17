@@ -12,29 +12,24 @@ def display_user_menu():
     print("4. Delogare")
 
 def display_admin_menu():
-    print("1. Vezi clientii existenti")
-    print("2. Adauga un client")
-    print("3. Modifica informatiile pentru un client sau un index existent")
-    print("4. Modifica un index existent")
-    print("5. Sterge un client")
-    print("6. Delogare")
+    print("1. Adauga un client")
+    print("2. Modifica informatiile pentru un client sau un index existent")
+    print("3. Modifica un index existent")
+    print("4. Sterge un client")
+    print("5. Delogare")
 
 def handle_admin_menu(choice, username, connection, cursor):
     if choice == 1:
-        view_users(cursor)
-        print("-" * 60)
-        time.sleep(1.5)
-    elif choice == 2:
         add_new_user(connection, cursor)
         print("-" * 60)
         time.sleep(1.5)
+    elif choice == 2:
+        pass
     elif choice == 3:
         pass
     elif choice == 4:
-        pass
-    elif choice == 5:
         print("Stergere client din baza de date!")
-    elif choice == 6:
+    elif choice == 5:
         print(f"Ai fost delogat/a! La revedere, {username}!")
         quit()
     else:
