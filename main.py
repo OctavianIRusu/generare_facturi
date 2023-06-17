@@ -1,10 +1,14 @@
 import sqlite3
 import time
+
+from bill_database import (add_new_user, authenticate, close_database,
+                           create_consumption_table, export_excel_table,
+                           generate_bill_input, generate_excel_input,
+                           get_bill_info, get_client_info, get_index_input,
+                           open_database, perform_database_operation,
+                           provide_new_index)
 from generate_bill import generate_pdf_bill, set_pdf_name
-from bill_database import (open_database, perform_database_operation, 
-    close_database, add_new_user, get_client_info, get_bill_info, 
-    provide_new_index, get_index_input, authenticate, generate_bill_input, 
-    create_consumption_table, generate_excel_input, export_excel_table)
+
 
 def display_user_menu():
     """
