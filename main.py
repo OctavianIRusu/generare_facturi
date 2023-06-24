@@ -41,6 +41,7 @@ from bill_database import (add_new_user, authenticate, close_database,
                            perform_database_operation, provide_new_index)
 from generate_bill import generate_pdf_bill, set_pdf_name
 
+
 class AuthenticationError(Exception):
     """
     Exception raised for authentication errors.
@@ -183,7 +184,12 @@ class MenuHandler:
             4: self.delete_user_menu_action,
             5: self.logout_menu_action,
         }
-        self.handle_menu(menu_actions)
+        try:
+            self.handle_menu(menu_actions)
+        except ValueError as verr:
+            print(verr)
+        except Exception:
+            print("Eroare la afisarea meniului (Admin)!")
 
     def generate_pdf_bill_menu_action(self):
         """
@@ -196,10 +202,6 @@ class MenuHandler:
         It retrieves the client information, bill information, and bill details 
         from the database. Finally, it generates the PDF bill using the 
         retrieved information.
-
-        If a TypeError occurs, it is likely due to missing consumption records 
-        for the selected month. In such cases, an error message is displayed 
-        indicating that consumption data is not available.
         """
         while True:
             try:
@@ -208,54 +210,80 @@ class MenuHandler:
             except TypeError:
                 print("Eroare: Date invalide! Nu s-a putut genera factura!")
                 print("-" * 65)
-            try:
-                bill_serial = get_bill_info(
-                    self.username, bill_year, bill_month, self.cursor)["bill_serial"]
-                bill_number = get_bill_info(
-                    self.username, bill_year, bill_month, self.cursor)["bill_number"]
-            except TypeError:
-                print("Eroare!")
-        file_name = set_pdf_name(bill_serial, bill_number)
-        client_info = get_client_info(self.username, self.cursor)
-        bill_info = get_bill_info(
-            self.username, bill_year, bill_month, self.cursor)
-        bill_details = create_consumption_table(
-            self.username, bill_year, bill_month, self.cursor)
-        generate_pdf_bill(file_name, client_info, bill_info, bill_details)
-
+        try:
+            bill_info = get_bill_info(
+                self.username, bill_year, bill_month, self.cursor)
+            bill_serial = bill_info["bill_serial"]
+            bill_number = bill_info["bill_number"]
+            file_name = set_pdf_name(bill_serial, bill_number)
+            client_info = get_client_info(self.username, self.cursor)
+            bill_details = create_consumption_table(
+                self.username, bill_year, bill_month, self.cursor)
+            generate_pdf_bill(file_name, client_info, bill_info, bill_details)
+        except TypeError:
+            print("Eroare: Nu au fost extrase date valide din baza de date!")
+        except OSError:
+            print("Eroare sistem! Nu s-a putut crea calea catre fisierul pdf!")
 
     def generate_excel_table_menu_action(self):
-        bill_year = generate_excel_input()
-        export_excel_table(self.cursor, self.username, bill_year)
+        """
+        Generates an Excel table and exports it based on user input.
+
+        This method prompts the user to enter a bill year and generates an 
+        Excel table based on the provided year. It then exports the generated 
+        table that contains the energy consumptio for the specified year.
+        """
+        try:
+            bill_year = generate_excel_input()
+            export_excel_table(self.cursor, self.username, bill_year)
+        except ValueError:
+            print("Eroare: Date invalide! Nu s-a putut genera exportul!")
+        except OSError:
+            print("Eroare sistem! Nu s-a putut crea calea catre fisierul excel!")
 
     def add_index_menu_action(self):
+        """
+        Adds a new index value for a specific bill year and month.
+
+        This method prompts the user to enter the bill year, bill month, 
+        and index value. It then adds the provided index value to the database
+        for the corresponding year and month.
+        """
         try:
             bill_year, bill_month, index_value = get_index_input(
                 self.cursor, self.username)
             provide_new_index(
                 self.connection, self.cursor, self.username, bill_year,
                 bill_month, index_value)
-        except ValueError as err:
+        except ValueError as verr:
             print("-" * 65)
-            print(str(err))
+            print(str(verr))
 
     def logout_menu_action(self):
         """
         Performs the logout action.
 
-        Prints a logout message with the username and exits the program.
+        Closes the database, prints a logout message and exits the program.
         """
+        close_database(self.connection)
         print(f"Ai fost delogat/a! La revedere, {self.username}!")
         sys.exit()
         
     def add_new_user_menu_action(self):
+        """
+        Executes the action for adding a new user to the system.
+
+        This method calls the `add_new_user` function, passing the database 
+        connection and cursor as parameters. The `add_new_user` function 
+        performs the necessary steps to add a new user to the system.
+        """
         add_new_user(self.connection, self.cursor)
 
     def modify_user_info_menu_action(self):
-        pass
+        modify_user_info()
 
     def modify_index_menu_action(self):
-        pass
+        modify_index()
 
     def delete_user_menu_action(self):
         """
@@ -279,35 +307,34 @@ class MenuHandler:
         """
         print("-" * 65)
         print("Bine ai venit! Pentru a continua este necesara autentificarea!")
-        print("-" * 65)
-        username = input("Introduceti numele de utilizator: ")
-        password = input("Introduceti parola: ")
-        time.sleep(1)
-
-        try:
-            authenticated, self.is_admin = authenticate(
-                username, password, self.cursor)
+        while True:
             print("-" * 65)
+            username = input("Introduceti numele de utilizator: ")
+            password = input("Introduceti parola: ")
+            time.sleep(1)
 
-            if authenticated:
-                print(
-                    f"Salut, {username}! Ai fost autentificat/a ca {'administrator' if self.is_admin else 'user'}.")
-                self.username = username
+            try:
+                authenticated, self.is_admin = authenticate(
+                    username, password, self.cursor)
+                print("-" * 65)
 
-                if self.is_admin:
-                    self.handle_admin_menu()
+                if authenticated:
+                    print(f"Salut, {username}! Ai fost autentificat/a ca {'administrator' if self.is_admin else 'user'}.")
+                    self.username = username
+
+                    if self.is_admin:
+                        self.handle_admin_menu()
+                    else:
+                        self.handle_user_menu()
                 else:
-                    self.handle_user_menu()
-            else:
-                raise AuthenticationError(
-                    "Autentificare esuata! Username sau parola gresita!")
-        except AuthenticationError as aerr:
-            print(str(aerr))
-            sys.exit()
-
-        close_database(self.connection)
-
+                    raise AuthenticationError(
+                        "Autentificare esuata! Username sau parola gresita!")
+            except AuthenticationError as aerr:
+                print(str(aerr))
+                continue
+            break
 
 if __name__ == "__main__":
     menu_handler = MenuHandler()
     menu_handler.main()
+    

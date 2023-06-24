@@ -1,13 +1,32 @@
+"""
+This module contains functions for generating and customizing PDF invoices 
+for the Greenergy company.
+
+The module provides the following functions:
+
+    set_pdf_name: Set the PDF file name based on the bill serial and number.
+    draw_img: Inserts an image within the canvas.
+    write_text_line: Inserts line of texts in the pdf page.
+    generate_table: Inserts a table within the canvas.
+    generate_barcode: Inserts a barcode
+    generate_barcode: The main function, that uses all the other functions
+        and works with the data coming from database to create the format 
+        and design of the pdf invoice
+    
+Please note that this module requires the following external libraries:
+    
+    reportlab: A library for generating PDF documents.
+"""
+
 import os
 from pathlib import Path
+
 from reportlab.graphics.barcode import code128
-from reportlab.lib.colors import black, lightgrey, white, whitesmoke, green
+from reportlab.lib.colors import black, green, lightgrey, white, whitesmoke
 from reportlab.lib.pagesizes import LETTER
 from reportlab.lib.units import cm
 from reportlab.pdfgen.canvas import Canvas
 from reportlab.platypus import Table, TableStyle
-from bill_database import PRICE_PER_UNIT, get_bill_info
-
 
 # Set the root folder path and icons folder path
 MAIN_FOLDER_ROOT = Path(__file__).parent
@@ -31,141 +50,161 @@ COMPANY_INFO = {
     "country": "Romania",
     "phone": "021-336 5503",
     "email": "contact@greenergy.ro"
-} 
+}
 
+def set_pdf_name(bill_serial: str, bill_number: str):
+    """
+    Set the PDF file name based on the bill serial and number.
 
+    Args:
+        bill_serial (str): The bill serial number.
+        bill_number (str): The bill number.
 
-def set_pdf_name(bill_serial, bill_number):
-    pdf_name = ("factura_{}_{}-{}.pdf".
-                format(COMPANY_INFO['name'].lower(), bill_serial, bill_number))
+    Returns:
+        str: The PDF file name.
+
+    Raises:
+        OSError: If there is an error creating the directory for PDF bills.
+    """
+    pdf_name = f"factura_{COMPANY_INFO['name'].lower()}_{bill_serial}-{bill_number}.pdf"
     pdf_bills_folder = MAIN_FOLDER_ROOT / "Facturi generate" / bill_serial
-    if not os.path.exists(pdf_bills_folder):
-        os.makedirs(pdf_bills_folder)
+    try:
+        if not os.path.exists(pdf_bills_folder):
+            os.makedirs(pdf_bills_folder)
+    except OSError as oserr:
+        error_msg = f"Eroare la crearea folderului {str(pdf_bills_folder)}!"
+        raise OSError(error_msg) from oserr
     return str(pdf_bills_folder / pdf_name)
 
-def draw_img(canvas, file_path, x_origin, y_origin, img_width, img_height):
+def draw_img(
+    canvas: Canvas,
+    file_path: str,
+    x_origin: float,
+    y_origin: float,
+    img_width: float,
+    img_height: float):
     """
-    Inserts an image within a canvas
-    
-    Args:
-    - canvas (Canvas): The canvas where the image will be inserted
-    - file_path (str): The path to the image file that will be inserted
-    - x_origin (float): The x-coordinate of the bottom-left corner of the image 
-        (percentage of the page size, e.g. 0.85)
-    - y_origin (float): The y-coordinate of the bottom-left corner of the image 
-        (percentage of the page size, e.g. 0.85)
-    - img_width (float): The width of the image 
-        (percentage of the page size, e.g. 0.85)
-    - img_height (float): The height of the image 
-        (percentage of the page size, e.g. 0.85)
-    
-    Raises:
-    - ValueError: If any of the float arguments 
-        (`x_origin`, `y_origin`, `img_width`, `img_height`)
-        have invalid values, such as negative values 
-        or values exceeding the canvas dimensions
-    - OSError: If the specified file cannot be accessed or opened
-    - TypeError: If any of the arguments is not of expected type
-    - Exception: If any other unexpected error occurs during 
-        the execution of the function
-            
-    Returns:
-        None
-    """
-    try:
-        if not isinstance(canvas, Canvas):
-            raise TypeError("The 'canvas' argument must be of type Canvas.")
-        if not 0 <= x_origin <= 1 or not 0 <= y_origin <= 1 or not 0 <= img_width <= 1 or not 0 <= img_height <= 1:
-            raise ValueError("The position and dimension arguments must be float values between 0 and 1 (inclusive).")
-        canvas.drawImage(file_path, x_origin * P_WIDTH, y_origin * P_HEIGHT, img_width * P_WIDTH, img_height * P_HEIGHT, "auto")
-    except OSError as oserr:
-        print(f"An error occurred while accessing or opening the file {file_path}")
-        print(oserr)
-    except TypeError as terr:
-        print("TypeError: Incorrect input parameter type.")
-        print(terr)
-    except Exception as err:
-        print("Error: An unexpected error occured!")
-        print(err)
-    
-def write_text_line(canvas, text, font, size, text_color, x, y):
-    """
-    Writes a single line of text on the given canvas at specified coordinates
+    Inserts an image within a canvas.
 
     Args:
-        canvas (Canvas): The canvas object on which to write the text
-        text (str): The text to be written
-        font (str): The font to be used for the text, e.g. "Times-Roman"
-        size (int): The font size of the text, float accepted too, e.g. "10"
-        x (float): The x-coordinate of the starting position of the text 
-            as float (percentage of page size)
-        y (float): The y-coordinate of the baseline position of the text 
-            as float (percentage of page size)
+        canvas (Canvas): The canvas where the image will be inserted.
+        file_path (str): The path to the image file that will be inserted.
+        x_origin (float): The x-coordinate of the bottom-left corner of the image 
+            (percentage of the page size, e.g. 0.85).
+        y_origin (float): The y-coordinate of the bottom-left corner of the image 
+            (percentage of the page size, e.g. 0.85).
+        img_width (float): The width of the image 
+            (percentage of the page size, e.g. 0.85).
+        img_height (float): The height of the image 
+            (percentage of the page size, e.g. 0.85).
+
     Raises:
-        - ValueError: If any of the float arguments (x, y) have invalid values, 
+        ValueError: If any of the float arguments have invalid values, such as 
+            negative values or values exceeding the canvas dimensions.
+        OSError: If the specified file cannot be accessed or opened.
+        TypeError: If any of the arguments is not of expected type.
+        Exception: If any other unexpected error occurs during the execution 
+            of the function.
+    """
+    try:
+        if not isinstance(canvas, Canvas):
+            raise TypeError("Parametrul 'canvas' trebuie sa fie de tipul Canvas.")
+        if (not 0 <= x_origin <= 1 or not 0 <= y_origin <= 1 
+            or not 0 <= img_width <= 1 or not 0 <= img_height <= 1):
+            raise ValueError(
+                "Pozitia/dimensiunea trebuie sa fie de tip float, intre 0 si 1.")
+        canvas.drawImage(file_path, x_origin * P_WIDTH, y_origin *
+                         P_HEIGHT, img_width * P_WIDTH, img_height * P_HEIGHT, "auto")
+    except OSError as oserr:
+        print(f"Eroare la accesarea fisierului: {file_path}: {oserr}")
+    except TypeError as terr:
+        print(f"Eroare: Parametrul nu este de tipul asteptat: {terr}")
+    except Exception as err:
+        print(f"Eroare neasteptata draw_img: {err}")
+
+def write_text_line(
+    canvas: Canvas,
+    text: str,
+    font: str,
+    size: int,
+    text_color: str,
+    x_value: float,
+    y_value: float):
+    """
+    Writes a single line of text on the given canvas at specified coordinates.
+
+    Args:
+        canvas (Canvas): The canvas object on which to write the text.
+        text (str): The text to be written.
+        font (str): The font to be used for the text, e.g. "Times-Roman".
+        size (int): The font size of the text, float accepted, e.g. "10".
+        text_color (str): The color of the text (needs to be imported)
+        x_value (float): The x-coordinate of the starting position of the text 
+            as float (percentage of page size).
+        y_value (float): The y-coordinate of the baseline position of the text 
+            as float (percentage of page size).
+    Raises:
+        ValueError: If any of the float arguments (x, y) have invalid values, 
             such as negative values or values exceeding the canvas dimensions.
-        - AttributeError: If the specified argument for text is not string
-        - TypeError: If any of the arguments is not of expected type
-        - KeyError: If the specified font does not exist in the library
-        - Exception: If any other unexpected error occurs
-            during the execution of the function
-        
-    Returns:
-        None
+        AttributeError: If the specified argument for text is not string.
+        TypeError: If any of the arguments is not of expected type.
+        KeyError: If the specified font does not exist in the library.
+        Exception: If any other unexpected error occurs during the execution 
+            of the function.
     """
     try:
         if not isinstance(canvas, Canvas):
             raise TypeError("The 'canvas' argument must be of type Canvas.")
-        if not 0 <= x <= 1 or not 0 <= y <= 1:
-            raise ValueError("The position and dimension arguments must be float values between 0 and 1 (inclusive).")
+        if not 0 <= x_value <= 1 or not 0 <= y_value <= 1:
+            raise ValueError(
+                "The position/dimension args must be float values between 0 and 1.")
         canvas.setFont(font, size)
         canvas.setFillColor(text_color)
-        canvas.drawString(x * P_WIDTH, y * P_HEIGHT, text)
+        canvas.drawString(x_value * P_WIDTH, y_value * P_HEIGHT, text)
     except AttributeError as aerr:
-        print("The text argument can only be a string!")
-        print(aerr)
+        print(f"The text argument can only be a string: {aerr}")
     except TypeError as terr:
-        print("Type error! Make sure you respect the type hints!")
-        print(terr)
+        print(f"Type error! Make sure you respect the type hints: {terr}")
     except ValueError as verr:
         print(f"Value error: {verr}")
     except KeyError as kerr:
         print(f"{kerr}: this font doesn't exist in the library!")
     except Exception as err:
-        print("Error: An unexpected error occured!")
-        print(err)
-    
-def generate_table(canvas, content: dict):
+        print(f"Eroare neasteptata write_text_line: {err}")
+
+def generate_table(canvas: Canvas, content: dict):
     """
-    Generates a table on a canvas based on the provided content of dictionary type
+    Generates a table on a canvas based on the provided content of dictionary type.
 
     Args:
         canvas: The canvas object on which to draw the table.
-        content (dict): A dictionary containing the table data. The keys represent
-            the headers of the table, and the values are lists representing the rows
+        content (dict): A dictionary containing the table data. The keys 
+            represent the headers of the table, and the values are lists 
+            representing the rows.
 
     Raises:
-        TypeError: If the `canvas` argument is not of the expected `Canvas` type
-        KeyError: If the `content` dictionary does not have the required keys
-        ValueError: If any of the float calculations for column widths or row heights
-            result in invalid values
-        Exception: If any other unexpected error occurs during the execution of the function
-        
-    Returns:
-        None
+        TypeError: If the `canvas` argument is not of the expected `Canvas` type.
+        KeyError: If the `content` dictionary does not have the required keys.
+        ValueError: If any of the float calculations for column widths or row
+            heights result in invalid values.
+        Exception: If any other unexpected error occurs during the execution 
+            of the function.
     """
     try:
         if not isinstance(canvas, Canvas):
             raise TypeError("The 'canvas' argument must be of type Canvas.")
+        
         headers = list(content.keys())
         rows = list(zip(*content.values()))
         data = [headers] + rows
 
         # create the table given the columns width and rows height
-        col_widths = [0.15 * P_WIDTH, 0.1 * P_WIDTH, 0.1 * P_WIDTH, 0.15 * P_WIDTH, 0.15 * P_WIDTH, 0.15 * P_WIDTH]
-        row_heights = [0.058 * P_HEIGHT, 0.045 * P_HEIGHT, 0.045 * P_HEIGHT, 0.045 * P_HEIGHT, 0.045 * P_HEIGHT]
+        col_widths = [0.15 * P_WIDTH, 0.1 * P_WIDTH, 0.1 *
+                      P_WIDTH, 0.15 * P_WIDTH, 0.15 * P_WIDTH, 0.15 * P_WIDTH]
+        row_heights = [0.058 * P_HEIGHT, 0.045 * P_HEIGHT,
+                       0.045 * P_HEIGHT, 0.045 * P_HEIGHT, 0.045 * P_HEIGHT]
         table = Table(data, rowHeights=row_heights, colWidths=col_widths)
-        
+
         # define the table style
         table_style = [
             ('BACKGROUND', (0, 0), (-1, 0), whitesmoke),
@@ -182,53 +221,60 @@ def generate_table(canvas, content: dict):
 
         # apply the table style
         table.setStyle(TableStyle(table_style))
-        
+
         # draw the table on canvas
-        table_width, table_height = table.wrapOn(canvas, P_WIDTH * 0.75, P_HEIGHT)
+        table.wrapOn(canvas, P_WIDTH * 0.75, P_HEIGHT)
         x = 0.1 * P_WIDTH
         y = 0.238 * P_HEIGHT
         table.drawOn(canvas, x, y)
-    except TypeError as te:
-        print(f"TypeError: {te}")
-    except KeyError as ke:
-        print(f"KeyError: {ke}")
-    except ValueError as ve:
-        print(f"ValueError: {ve}")
-    except Exception as e:
-        print(f"An unexpected error occurred: {e}")
-    
-def generate_barcode(canvas, barcode_value, x, y):
+    except TypeError as terr:
+        print(f"Eroare: Parametrul nu este de tipul asteptat: {terr}")
+    except KeyError as kerr:
+        print(f"Eroare: Dictionarul nu contine elementele asteptate: {kerr}")
+    except ValueError as verr:
+        print(f"Eroare la pozitionarea in pagina a tabelului: {verr}")
+    except Exception as err:
+        print(f"Eroare neasteptata generate_table: {err}")
+
+def generate_barcode(
+    canvas: Canvas,
+    barcode_value: str,
+    x_position: float,
+    y_position: float):
     """
-    Generates a barcode on a canvas at the specified position
-    
+    Generates a barcode on a canvas at the specified position.
+
     Args:
-        barcode_value (str): The value of the barcode to be generated
-        canvas_object (Canvas): The canvas object on which to draw the barcode
-        x (float): The division factor for adjusting the X position of the barcode
-            (e.g., setting x=2 will position the barcode at P_WIDTH/2)
+        canvas: The canvas object on which to draw the barcode.
+        barcode_value (str): The value of the barcode to be generated.
+        canvas_object (Canvas): The canvas object on which to draw the barcode.
+        x (float): The division factor for adjusting the X position of the 
+            barcode (e.g. setting x=2 will position the barcode at P_WIDTH/2).
 
     Raises:
-        TypeError: If the `canvas_object` argument is not of the expected `Canvas` type
-        ValueError: If the provided `x` value is not a positive float
-        Exception: If any other unexpected error occurs during the execution of the function
-
-    Returns:
-        None
+        TypeError: If `canvas_object` argument is not of the `Canvas` type.
+        ValueError: If the provided `x` value is not a positive float.
+        Exception: If any other unexpected error occurs during the execution 
+            of the function.
     """
     try:
         if not isinstance(canvas, Canvas):
-            raise TypeError("The 'canvas' argument must be of type Canvas.")
+            raise TypeError("Parametrul 'canvas' trebuie sa fie de tipul Canvas.")
         canvas.setFillColor("black")
-        bill_barcode = code128.Code128(barcode_value, barWidth=1, barHeight=1 * cm, humanReadable=True)
-        bill_barcode.drawOn(canvas, (P_WIDTH - bill_barcode.width) / x, y * P_HEIGHT)
+        bill_barcode = code128.Code128(
+            barcode_value, barWidth=1, barHeight=1 * cm, humanReadable=True)
+        bill_barcode.drawOn(
+            canvas, (P_WIDTH - bill_barcode.width) / x_position, y_position * P_HEIGHT)
     except TypeError as terr:
-        print(f"TypeError: {terr}")
-    except ValueError as verr:
-        print(f"ValueError: {verr}")
+        print(f"Eroare: Parametrul nu este de tipul asteptat: {terr}")
     except Exception as err:
-        print(f"An unexpected error occurred: {err}")
+        print(f"Eroare neasteptata draw_img: {err}")
 
-def generate_pdf_bill(file_name: str, client_info: dict, bill_info: dict, bill_details: dict):    
+def generate_pdf_bill(
+    file_name: str,
+    client_info: dict,
+    bill_info: dict,
+    bill_details: dict):
     """
     Generates a PDF bill document based on the provided information.
 
@@ -239,79 +285,117 @@ def generate_pdf_bill(file_name: str, client_info: dict, bill_info: dict, bill_d
         bill_details (dict): A dictionary containing the bill details.
 
     Raises:
-        TypeError: If the `bill_canvas` argument is not of the expected `Canvas` type.
-        ValueError: If the provided `x` value in the `generate_barcode` function is not a positive float.
-        Exception: If any other unexpected error occurs during the execution of the function.
-
-    Returns:
-        None
+        TypeError: If the arguments are not of the expected type.
+        ValueError: If the provided `x` value in the `generate_barcode` 
+            function is not a positive float.
     """
     try:
         # Create a canvas object with the given file_name and pagesize
         bill_canvas = Canvas(file_name, pagesize=PAGE_SIZE)
-        
-        # Insert the logo and different icons in the canvas
-        draw_img(bill_canvas, ICONS_PATH / COMPANY_LOGO_FILE, 0.645, 0.8, 0.159, 0.143)
-        draw_img(bill_canvas, ICONS_PATH / LOCATION_ICON_FILE, 0.111, 0.862, 0.011, 0.014)
-        draw_img(bill_canvas, ICONS_PATH / PHONE_ICON_FILE, 0.111, 0.826, 0.011, 0.013)
-        draw_img(bill_canvas, ICONS_PATH / EMAIL_ICON_FILE, 0.111, 0.806, 0.014, 0.007)
 
-        # Insert horizontal lines and a rectangle to visually separate and highlight the content
+        # Insert the logo and different icons in the canvas
+        draw_img(bill_canvas, ICONS_PATH / COMPANY_LOGO_FILE,
+                 0.645, 0.8, 0.159, 0.143)
+        draw_img(bill_canvas, ICONS_PATH / LOCATION_ICON_FILE,
+                 0.111, 0.862, 0.011, 0.014)
+        draw_img(bill_canvas, ICONS_PATH / PHONE_ICON_FILE,
+                 0.111, 0.826, 0.011, 0.013)
+        draw_img(bill_canvas, ICONS_PATH / EMAIL_ICON_FILE,
+                 0.111, 0.806, 0.014, 0.007)
+
+        # Insert horizontal lines/rectangle to visually separate the content
         bill_canvas.setStrokeColor(lightgrey)
         bill_canvas.setFillColor(lightgrey)
-        bill_canvas.line(0.1 * P_WIDTH, 0.578 * P_HEIGHT, 0.9 * P_WIDTH, 0.578 * P_HEIGHT)
-        bill_canvas.line(0.1 * P_WIDTH, 0.233 * P_HEIGHT, 0.9 * P_WIDTH, 0.233 * P_HEIGHT)
-        bill_canvas.rect(0.1 * P_WIDTH, 0.154 * P_HEIGHT, 0.8 * P_WIDTH, 0.028 * P_HEIGHT, fill=1)
+        bill_canvas.line(0.1 * P_WIDTH, 0.578 * P_HEIGHT, 0.9 * P_WIDTH,
+                         0.578 * P_HEIGHT)
+        bill_canvas.line(0.1 * P_WIDTH, 0.233 * P_HEIGHT, 0.9 * P_WIDTH,
+                         0.233 * P_HEIGHT)
+        bill_canvas.rect(0.1 * P_WIDTH, 0.154 * P_HEIGHT, 0.8 * P_WIDTH,
+                         0.028 * P_HEIGHT, fill=1)
 
         # Insert the information text about the company
-        write_text_line(bill_canvas, COMPANY_INFO["name"], "Times-Roman", 25, "green", 0.143, 0.926)
-        write_text_line(bill_canvas, COMPANY_INFO["street"], "Times-Roman", 12, "black", 0.143, 0.877)  
-        write_text_line(bill_canvas, COMPANY_INFO["city"], "Times-Roman", 12, "black", 0.143, 0.862)
-        write_text_line(bill_canvas, COMPANY_INFO["country"], "Times-Roman", 12, "black", 0.143, 0.847)  
-        write_text_line(bill_canvas, COMPANY_INFO["phone"], "Times-Roman", 12, "black", 0.143, 0.826)  
-        write_text_line(bill_canvas, COMPANY_INFO["email"], "Times-Roman", 12, "black", 0.143, 0.806)  
+        write_text_line(bill_canvas, COMPANY_INFO["name"], "Times-Roman",
+                        25, "green", 0.143, 0.926)
+        write_text_line(bill_canvas, COMPANY_INFO["street"], "Times-Roman",
+                        12, "black", 0.143, 0.877)
+        write_text_line(bill_canvas, COMPANY_INFO["city"], "Times-Roman",
+                        12, "black", 0.143, 0.862)
+        write_text_line(bill_canvas, COMPANY_INFO["country"], "Times-Roman",
+                        12, "black", 0.143, 0.847)
+        write_text_line(bill_canvas, COMPANY_INFO["phone"], "Times-Roman",
+                        12, "black", 0.143, 0.826)
+        write_text_line(bill_canvas, COMPANY_INFO["email"], "Times-Roman",
+                        12, "black", 0.143, 0.806)
 
         # Insert the information about the current bill
-        write_text_line(bill_canvas, "Factura fiscala", "Times-Bold", 13, "black", 0.625, 0.741)
-        write_text_line(bill_canvas, f"Seria {bill_info['bill_serial']} nr. {bill_info['bill_number']}", "Times-Roman", 12, "black", 0.625, 0.719)
-        write_text_line(bill_canvas, bill_info['bill_generated_date'], "Times-Roman", 12, "black", 0.746, 0.699)
-        write_text_line(bill_canvas, bill_info['bill_due_date'], "Times-Roman", 12, "black", 0.758, 0.680)
-        write_text_line(bill_canvas, f"{bill_info['bill_start_date']} - {bill_info['bill_end_date']}", "Times-Roman", 12, "black", 0.625, 0.643)
-        write_text_line(bill_canvas, "Data facturii:", "Times-Bold", 12, "black", 0.625, 0.699)
-        write_text_line(bill_canvas, "Data scadenta:", "Times-Bold", 12, "black", 0.625, 0.680)
-        write_text_line(bill_canvas, "Perioada de facturare:", "Times-Bold", 12, "black", 0.625, 0.662)
+        write_text_line(bill_canvas, "Factura fiscala", "Times-Bold", 13,
+                        "black", 0.625, 0.741)
+        write_text_line(bill_canvas,
+                        f"Seria {bill_info['bill_serial']} nr. {bill_info['bill_number']}",
+                        "Times-Roman", 12, "black", 0.625, 0.719)
+        write_text_line(bill_canvas, bill_info['bill_generated_date'],
+                        "Times-Roman", 12, "black", 0.746, 0.699)
+        write_text_line(bill_canvas, bill_info['bill_due_date'], "Times-Roman",
+                        12, "black", 0.758, 0.680)
+        write_text_line(bill_canvas,
+                        f"{bill_info['bill_start_date']} - {bill_info['bill_end_date']}",
+                        "Times-Roman", 12, "black", 0.625, 0.643)
+        write_text_line(bill_canvas, "Data facturii:", "Times-Bold", 12,
+                        "black", 0.625, 0.699)
+        write_text_line(bill_canvas, "Data scadenta:", "Times-Bold", 12,
+                        "black", 0.625, 0.680)
+        write_text_line(bill_canvas, "Perioada de facturare:", "Times-Bold",
+                        12, "black", 0.625, 0.662)
 
         # Insert the information about the client
-        write_text_line(bill_canvas, client_info["name"].upper(), "Times-Bold", 13, "black", 0.143, 0.741)
-        write_text_line(bill_canvas, client_info["street"], "Times-Roman", 12, "black", 0.143, 0.719)
-        write_text_line(bill_canvas, f"{client_info['zipcode']}, {client_info['city'].upper()}, Judetul {client_info['county']}", "Times-Roman", 12, "black", 0.143, 0.699)
-        write_text_line(bill_canvas, f"Cod client: {client_info['id']}", "Times-Roman", 12, "black", 0.143, 0.680)
+        write_text_line(bill_canvas, client_info["name"].upper(), "Times-Bold",
+                        13, "black", 0.143, 0.741)
+        write_text_line(bill_canvas, client_info["street"], "Times-Roman", 12,
+                        "black", 0.143, 0.719)
+        write_text_line(bill_canvas,
+                        f"{client_info['zipcode']}, {client_info['city'].upper()}, Judetul {client_info['county']}",
+                        "Times-Roman", 12, "black", 0.143, 0.699)
+        write_text_line(bill_canvas, f"Cod client: {client_info['id']}",
+                        "Times-Roman", 12, "black", 0.143, 0.680)
 
         # Insert the information about the bill value
-        write_text_line(bill_canvas, "Detalii factura curenta:", "Times-Bold", 24, "green", 0.111, 0.588)
-        write_text_line(bill_canvas, "Din ce este compus consumul tau?", "Times-Bold", 15, "green", 0.111, 0.500)
-        write_text_line(bill_canvas, f"{COMPANY_INFO['name'].upper()} HOME ELECTRIC", "Times-Bold", 14, "black", 0.111, 0.556)
-        write_text_line(bill_canvas, f"{bill_info['total_bill_value']:.2f}  lei", "Times-Bold", 14, "black", 0.769, 0.556)
-        write_text_line(bill_canvas, "Total", "Times-Bold", 10, "black", 0.15, 0.204)
-        write_text_line(bill_canvas, f"{bill_info['total_fara_tva']:.2f}", "Times-Bold", 10, "black", 0.657, 0.204)
-        write_text_line(bill_canvas, f"{bill_info['total_tva']:.2f}", "Times-Bold", 10, "black", 0.813, 0.204)
-        write_text_line(bill_canvas, "Total de plata, TVA inclus [Lei]", "Times-Roman", 12, "black", 0.11, 0.164)
-        write_text_line(bill_canvas, f"{bill_info['total_bill_value']:.2f}", "Times-Roman", 12, "black", 0.808, 0.164)
+        write_text_line(bill_canvas, "Detalii factura curenta:", "Times-Bold",
+                        24, "green", 0.111, 0.588)
+        write_text_line(bill_canvas, "Din ce este compus consumul tau?",
+                        "Times-Bold", 15, "green", 0.111, 0.500)
+        write_text_line(bill_canvas, f"{COMPANY_INFO['name'].upper()} HOME ELECTRIC",
+                        "Times-Bold", 14, "black", 0.111, 0.556)
+        write_text_line(bill_canvas, f"{bill_info['total_bill_value']:.2f}  lei",
+                        "Times-Bold", 14, "black", 0.769, 0.556)
+        write_text_line(bill_canvas, "Total", "Times-Bold",
+                        10, "black", 0.15, 0.204)
+        write_text_line(bill_canvas, f"{bill_info['total_fara_tva']:.2f}",
+                        "Times-Bold", 10, "black", 0.657, 0.204)
+        write_text_line(bill_canvas, f"{bill_info['total_tva']:.2f}",
+                        "Times-Bold", 10, "black", 0.813, 0.204)
+        write_text_line(bill_canvas, "Total de plata, TVA inclus [Lei]",
+                        "Times-Roman", 12, "black", 0.11, 0.164)
+        write_text_line(bill_canvas, f"{bill_info['total_bill_value']:.2f}",
+                        "Times-Roman", 12, "black", 0.808, 0.164)
 
         # Insert the text under the barcodes
-        write_text_line(bill_canvas, "Cod de bare pentru factura curenta", "Times-Bold", 9, "black", 0.165, 0.05)
-        write_text_line(bill_canvas, "Cod de bare pentru total de plata (sold)", "Times-Bold", 9, "black", 0.6, 0.05)
+        write_text_line(bill_canvas, "Cod de bare pentru factura curenta",
+                        "Times-Bold", 9, "black", 0.165, 0.05)
+        write_text_line(bill_canvas, "Cod de bare pentru total de plata (sold)",
+                        "Times-Bold", 9, "black", 0.6, 0.05)
 
         # Insert the table containing the details about bill consumption and price calculations
         generate_table(bill_canvas, bill_details)
-        
+
         # Create strings for barcode generation, one for the current bill and one for total payment (including overdue)
-        CURRENT_BILL_VALUE_BARCODE = f"{bill_info['bill_number']}{bill_info['total_bill_value']:.2f}"
-        TOTAL_VALUE_BARCODE = f"{bill_info['bill_number']}{bill_info['total_bill_value']:.2f}"
+        current_bill_barcode = (
+            f"{bill_info['bill_number']}{bill_info['total_bill_value']:.2f}")
+        total_value_barcode = (
+            f"{bill_info['bill_number']}{bill_info['total_bill_value']:.2f}")
 
         # Insert the barcodes in image format in the canvas
-        generate_barcode(bill_canvas, CURRENT_BILL_VALUE_BARCODE, 6, 0.085)
-        generate_barcode(bill_canvas, TOTAL_VALUE_BARCODE, 1.2, 0.085)
+        generate_barcode(bill_canvas, current_bill_barcode, 6, 0.085)
+        generate_barcode(bill_canvas, total_value_barcode, 1.2, 0.085)
 
         # Save the modifications for the pdf export
         bill_canvas.showPage()
@@ -323,5 +407,5 @@ def generate_pdf_bill(file_name: str, client_info: dict, bill_info: dict, bill_d
     except Exception as err:
         print(f"An unexpected error occurred: {err}")
     else:
-        print("-" * 60)
+        print("-" * 65)
         print("Factura a fost generata cu succes!")
