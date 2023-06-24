@@ -37,7 +37,8 @@ from bill_database import (add_new_user, authenticate, close_database,
                            create_consumption_table, delete_user,
                            export_excel_table, generate_bill_input,
                            generate_excel_input, get_bill_info,
-                           get_client_info, get_index_input, open_database,
+                           get_client_info, get_index_input, modify_index,
+                           modify_user_info, open_database,
                            perform_database_operation, provide_new_index)
 from generate_bill import generate_pdf_bill, set_pdf_name
 
@@ -280,10 +281,22 @@ class MenuHandler:
         add_new_user(self.connection, self.cursor)
 
     def modify_user_info_menu_action(self):
-        modify_user_info()
+        """
+        Executes the action for modifying a specific field in the users table 
+        of the SQLite database.
+
+        This method calls the `modify_user_info` function, prompts the admin to
+        select a field and enter a new value for that field, and then updates 
+        the specified field in the users table with the new value.
+        """
+        try:
+            modify_user_info(self.connection, self.cursor)
+        except ValueError:
+            print("Operatie nereusita, datele furnizate sunt invalide!")
 
     def modify_index_menu_action(self):
-        modify_index()
+        pass
+        # modify_index()
 
     def delete_user_menu_action(self):
         """

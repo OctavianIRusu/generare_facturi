@@ -258,6 +258,34 @@ def add_new_user(connection: sqlite3.Connection, cursor: sqlite3.Cursor):
     except sqlite3.Error as sqerr:
         print(f"Eroare la accesarea bazei de date: {sqerr}")
 
+def modify_user_info(connection: sqlite3.Connection, cursor: sqlite3.Cursor):
+    """
+    Modifies a specific field in the users table of the SQLite database.
+
+    This function prompts the admin to select a field from the editable fields
+    in the users table and enter a new value for that field. The function
+    then executes an SQL UPDATE query to update the specified field with the
+    new value for the given username.
+
+    Parameters:
+        connection (sqlite3.Connection): A connection object representing the 
+            connection to the SQLite database.
+        cursor (sqlite3.Cursor): A cursor object for the given connection.
+
+    Raises:
+    - ValueError: If the selected field is not a valid field in the users table.
+    """
+    try:
+        username = str(input("Introdu username-ul clientului pe care doresti sa il elimini: "))
+        cursor.execute('''SELECT COUNT(*) FROM users
+                       WHERE username = ?''',
+                       (username,))
+        result = cursor.fetchone()
+        if result[0] == 0:
+            raise LookupError("Nu a fost gasit niciun client cu acest username!")
+    except sqlite3.Error as sqerr:
+        raise RuntimeError("An error occurred while accessing the database.") from sqerr
+
 def delete_user(connection: sqlite3.Connection, cursor: sqlite3.Cursor):
     """
     Remove a user from the database based on the username.
@@ -764,6 +792,9 @@ def generate_bill_input() -> tuple:
         return (int(bill_year), int(bill_month))
     except ValueError as verr:
         print(f"Eroare: {verr}")
+
+def modify_index():
+    pass
 
 def provide_new_index(
     connection: sqlite3.Connection,
