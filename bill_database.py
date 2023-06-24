@@ -258,7 +258,34 @@ def add_new_user(connection: sqlite3.Connection, cursor: sqlite3.Cursor):
     except sqlite3.Error as sqerr:
         print(f"Eroare la accesarea bazei de date: {sqerr}")
 
-def modify_user_info(connection: sqlite3.Connection, cursor: sqlite3.Cursor):
+def search_user(cursor: sqlite3.Cursor):
+    """
+    Searches for a user in the 'users' table based on the entered username.
+
+    Args:
+        cursor (sqlite3.Cursor): The cursor object for executing SQL queries.
+    
+    Returns:
+        username (str): The username of the existing client
+    Raises:
+        LookupError: If no client with the given username is found in the table.
+    """
+    while True:
+        try:
+            username = str(input("Introdu username-ul clientului: "))
+            cursor.execute('''SELECT COUNT(*) FROM users
+                        WHERE username = ?''',
+                        (username,))
+            result = cursor.fetchone()
+            if result[0] == 0:
+                raise LookupError("Nu a fost gasit niciun client cu acest username!")
+            break
+        except LookupError as lerr:
+            print(str(lerr))
+        print("-" * 65)
+    return username
+
+def modify_user_address(connection: sqlite3.Connection, cursor: sqlite3.Cursor):
     """
     Modifies a specific field in the users table of the SQLite database.
 
@@ -276,13 +303,20 @@ def modify_user_info(connection: sqlite3.Connection, cursor: sqlite3.Cursor):
     - ValueError: If the selected field is not a valid field in the users table.
     """
     try:
-        username = str(input("Introdu username-ul clientului pe care doresti sa il elimini: "))
-        cursor.execute('''SELECT COUNT(*) FROM users
-                       WHERE username = ?''',
-                       (username,))
-        result = cursor.fetchone()
-        if result[0] == 0:
-            raise LookupError("Nu a fost gasit niciun client cu acest username!")
+        username = search_user(cursor)
+        street = input("Introdu numele noii strazi: ")
+        zipcode = input("Introdu noul cod postal: ")
+        city = input("Introdu noua localitate: ")
+        county = input("Introdu noul judet: ")
+        cursor.execute('''UPDATE users SET street = ?, zipcode = ?,
+                    city = ?, county = ?
+                    WHERE username = ?''',
+                    (street, zipcode, city, county, username))
+        connection.commit()
+        print("-" * 65)
+        print("Informatiile au fost actualizate cu succes!")
+    except LookupError as lerr:
+            print(str(lerr))
     except sqlite3.Error as sqerr:
         raise RuntimeError("An error occurred while accessing the database.") from sqerr
 
@@ -303,13 +337,7 @@ def delete_user(connection: sqlite3.Connection, cursor: sqlite3.Cursor):
             statement.
     """
     try:
-        username = str(input("Introdu username-ul clientului pe care doresti sa il elimini: "))
-        cursor.execute('''SELECT COUNT(*) FROM users
-                       WHERE username = ?''',
-                       (username,))
-        result = cursor.fetchone()
-        if result[0] == 0:
-            raise LookupError("Nu a fost gasit niciun client cu acest username!")
+        username = search_user(cursor)
         while True:
             confirmation = input(f"Esti sigur ca doresti sa stergi user-ul {username}? y/n ")
             if confirmation.lower() == "n":
@@ -752,12 +780,17 @@ def get_index_input(cursor: sqlite3.Cursor, username: str) -> tuple:
             raise ValueError(f"An invalid! Introdu o valoare intre 2020 si {current_year}!")
 
         while True:
-            index_value = float(input(
-                f"Introdu indexul pentru luna {get_romanian_month_name(bill_month)} {bill_year}: "))
+            ro_month = get_romanian_month_name(bill_month)
+            index_value = input(f"Introdu indexul pentru luna {ro_month} {bill_year}: ")
+            if not index_value.isdigit():
+                raise ValueError("Indexul este o valoare numerica!")
+            index_value = float(index_value)
             consumption = calculate_monthly_consumption(
                 cursor, username, bill_year, bill_month, index_value)
+            if consumption < 0:
+                raise ValueError("Consumul nu poate fi negativ!")
             print(f"Conform acestui index, consumul pentru luna "
-                  f"{get_romanian_month_name(bill_month)} {bill_year} va fi de "
+                  f"{ro_month} {bill_year} va fi de "
                   f"{consumption} kWh.")
             confirmation = input("Doresti sa continui cu acest index? (y/n) ")
             if confirmation.lower() == "y":
@@ -793,8 +826,74 @@ def generate_bill_input() -> tuple:
     except ValueError as verr:
         print(f"Eroare: {verr}")
 
-def modify_index():
-    pass
+# !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+# De creat o functie care modifica in baza de date
+# Cod comun pentru a introduce date noi si a inlocui cu alte date
+# Modify si provide => completare index si consumuri
+
+def modify_index(connection: sqlite3.Connection, cursor: sqlite3.Cursor):
+    """
+    Prompts the admin to enter the username and new index value for 
+    consumption calculation.
+
+    Args:
+        connection (sqlite3.Connection): A connection object representing the 
+            connection to the SQLite database.
+        cursor (sqlite3.Cursor): The database cursor object.
+        username (str): The username of the user.
+
+    Raises:
+        LookupError: If there is no user with the specified username.
+        ValueError: If the provided index is not numeric or it gives negative 
+            consumption.
+        KeyboardInterrupt: If the admin does not confirm the new index value.
+        sqlite3.Error: If there is a communication issue with the database.
+    """
+    try:
+        username = search_user(cursor)
+        cursor.execute("""SELECT bill_id, index_value, bill_month, bill_year
+                       FROM bills WHERE username = ? 
+                       ORDER BY bill_id DESC LIMIT 1""", (username,))
+        result = cursor.fetchone()
+        if result is None:
+            raise LookupError(f"No user found with the username '{username}'")
+        bill_id = result[0]
+        old_index = result[1]
+        index_month = result[2]
+        index_year = result[3]
+        ro_month = get_romanian_month_name(index_month)
+        print("-" * 65)
+        print(f"Poti modifica indexul lunii {ro_month} {index_year}!")
+        print(f"Indexul existent este {old_index}!")
+        while True:
+            print("-" * 65)
+            new_index = input("Introdu noul index: ")
+            if not new_index.isdigit():
+                raise ValueError("Indexul este o valoare numerica!")
+            new_index = float(new_index)
+            consumption = calculate_monthly_consumption(
+                    cursor, username, index_year, index_month, new_index)
+            if consumption < 0:
+                raise ValueError("Consumul nu poate fi negativ!")
+            print(f"Conform acestui index, consumul pentru luna "
+                    f"{ro_month} {index_year} va fi de "
+                    f"{consumption} kWh.")
+            confirmation = input("Doresti sa continui cu acest index? (y/n) ")
+            if confirmation.lower() == "y":
+                break
+            if confirmation.lower() == "n":
+                raise KeyboardInterrupt("Operatie anulata!")
+            print("""Alegere invalida! Alege 'y' sau 'n'.""")
+            cursor.execute("""UPDATE users SET index_value
+                        WHERE bill_id = ?""",
+                        (new_index, bill_id))
+            connection.commit()
+            print("-" * 65)
+        print(f"Indexul a fost modificat de la {old_index} la {new_index}.")
+    except LookupError as lerr:
+            print(str(lerr))
+    except sqlite3.Error as sqerr:
+        raise RuntimeError("An error occurred while accessing the database.") from sqerr
 
 def provide_new_index(
     connection: sqlite3.Connection,

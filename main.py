@@ -38,7 +38,7 @@ from bill_database import (add_new_user, authenticate, close_database,
                            export_excel_table, generate_bill_input,
                            generate_excel_input, get_bill_info,
                            get_client_info, get_index_input, modify_index,
-                           modify_user_info, open_database,
+                           modify_user_address, open_database,
                            perform_database_operation, provide_new_index)
 from generate_bill import generate_pdf_bill, set_pdf_name
 
@@ -150,6 +150,7 @@ class MenuHandler:
                 menu_action = menu_actions[choice]
                 menu_action()
             except ValueError as verr:
+                print("-" * 65)
                 print(f"Eroare: {verr}")
 
     def handle_user_menu(self):
@@ -167,7 +168,11 @@ class MenuHandler:
             3: self.add_index_menu_action,
             4: self.logout_menu_action,
         }
-        self.handle_menu(menu_actions)
+        try:
+            self.handle_menu(menu_actions)
+        except ValueError as verr:
+            print("-" * 65)
+            print(verr)
 
     def handle_admin_menu(self):
         """
@@ -188,9 +193,8 @@ class MenuHandler:
         try:
             self.handle_menu(menu_actions)
         except ValueError as verr:
+            print("-" * 65)
             print(verr)
-        except Exception:
-            print("Eroare la afisarea meniului (Admin)!")
 
     def generate_pdf_bill_menu_action(self):
         """
@@ -290,13 +294,30 @@ class MenuHandler:
         the specified field in the users table with the new value.
         """
         try:
-            modify_user_info(self.connection, self.cursor)
+            modify_user_address(self.connection, self.cursor)
         except ValueError:
+            print("-" * 65)
             print("Operatie nereusita, datele furnizate sunt invalide!")
+        except LookupError as lerr:
+            print("-" * 65)
+            print(str(lerr))
 
     def modify_index_menu_action(self):
-        pass
-        # modify_index()
+        """
+        Executes the action for modifying the consumption index for a specific
+        user for the last month.
+        """
+        try:
+            modify_index(self.connection, self.cursor)
+        except KeyboardInterrupt as kierr:
+            print("-" * 65)
+            print(str(kierr))
+        except ValueError:
+            print("-" * 65)
+            print("Operatie nereusita, datele furnizate sunt invalide!")
+        except LookupError as lerr:
+            print("-" * 65)
+            print(str(lerr))
 
     def delete_user_menu_action(self):
         """
