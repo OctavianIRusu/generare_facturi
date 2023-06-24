@@ -220,11 +220,52 @@ def add_new_user(connection: sqlite3.Connection, cursor: sqlite3.Cursor):
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)''',
                        (name, street, zipcode, city, county, username, password, role))
         connection.commit()
-        print("-" * 60)
+        print("-" * 65)
         print("Noul client a fost adaugat cu succes!")
     except sqlite3.Error as sqerr:
         print(f"SQLite error occurred while opening the database: {sqerr}")
 
+def delete_user(connection: sqlite3.Connection, cursor: sqlite3.Cursor):
+    """
+    Remove a user from the database based on the username.
+
+    Args:
+        connection (sqlite3.Connection): 
+            A connection object to the SQLite database.
+        cursor (sqlite3.Cursor): A cursor object for executing SQL statements.
+    
+    Raises:
+        LookupError: If there is no user found in the database with the
+            specified username
+        KeyboardInterrupt: If the confirmation of deletion is canceled
+        sqlite3.Error: If there is an error during the execution of the SQL 
+            statement.
+    """
+    try:
+        username = str(input("Introdu username-ul clientului pe care doresti sa il elimini: "))
+        cursor.execute('''SELECT COUNT(*) FROM users
+                       WHERE username = ?''',
+                       (username,))
+        result = cursor.fetchone()
+        if result[0] == 0:
+            raise LookupError("Nu a fost gasit niciun client cu acest username!")
+        while True:
+            confirmation = input(f"Esti sigur ca doresti sa stergi user-ul {username}? y/n ")
+            if confirmation.lower() == "n":
+                raise KeyboardInterrupt("Stergere anulata!")
+            if confirmation.lower() == "y":
+                cursor.execute('''DELETE FROM users
+                            WHERE username = ?''',
+                            (username,))
+                print("-" * 65)
+                print("Clientul a fost sters cu succes!")
+                connection.commit()
+                connection.close()
+                break
+            else:
+                print("""Alegere invalida! Alege intre 'y' si 'n'.""")
+    except sqlite3.Error as sqerr:
+        raise RuntimeError("An error occurred while accessing the database.") from sqerr
 
 def get_client_info(username: str, cursor: sqlite3.Cursor) -> dict:
     """

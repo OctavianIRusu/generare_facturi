@@ -39,7 +39,7 @@ from bill_database import (add_new_user, authenticate, close_database,
                            generate_bill_input, generate_excel_input,
                            get_bill_info, get_client_info, get_index_input,
                            open_database, perform_database_operation,
-                           provide_new_index)
+                           provide_new_index, delete_user)
 from generate_bill import generate_pdf_bill, set_pdf_name
 
 
@@ -209,7 +209,7 @@ class MenuHandler:
         quit()
 
     def add_new_user_menu_action(self):
-        add_new_user()
+        add_new_user(self.connection, self.cursor)
 
     def modify_user_info_menu_action(self):
         pass
@@ -218,7 +218,20 @@ class MenuHandler:
         pass
 
     def delete_user_menu_action(self):
-        pass
+        """
+        Performs the deletion of an user based on the username.
+        """
+        try:
+            delete_user(self.connection, self.cursor)
+        except LookupError as lerr:
+            print("-" * 65)
+            print(str(lerr))
+        except KeyboardInterrupt as kierr:
+            print("-" * 65)
+            print(str(kierr))
+        except RuntimeError as rterr:
+            print("-" * 65)
+            print(str(rterr))
 
     def main(self):
         """
