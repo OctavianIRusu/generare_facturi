@@ -79,9 +79,6 @@ CONSUMPTION_TABLE_CONTENT = {
     "Valoare TVA (19%)": []
 }
 
-# connection = sqlite3.connect(DB_FILE)
-# cursor = connection.cursor()
-
 
 def open_database() -> sqlite3.Connection:
     """
@@ -176,7 +173,7 @@ def authenticate(
     """
     if not isinstance(cursor, sqlite3.Cursor):
         raise TypeError("Invalid cursor object. Expected sqlite3.Cursor.")
-
+    
     try:
         cursor.execute("""SELECT role FROM users 
             WHERE username = ? AND password = ?""", (username, password))
@@ -185,8 +182,7 @@ def authenticate(
             role = result[0]
             if role == 'admin':
                 return True, True
-            else:
-                return True, False
+            return True, False
         return False, False
     except sqlite3.Error as sqerr:
         print(f"SQLite error occurred while opening the database: {sqerr}")
@@ -211,19 +207,20 @@ def add_new_user(connection: sqlite3.Connection, cursor: sqlite3.Cursor):
         zipcode = input("Introdu codul postal: ")
         city = input("Introdu localitatea: ")
         county = input("Introdu judetul: ")
-        username = input("Introdu un nume de utilizator: ")
-        password = input("Introdu o parola: ")
+        username = "".join([s.lower() for s in name.split()])
+        password = username
         role = input("Alege tip user (user/admin): ")
 
-        cursor.execute('''INSERT INTO users (name, street, zipcode, city, 
+        cursor.execute('''INSERT INTO users (name, street, zipcode, city,
             county, username, password, role)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)''',
-                       (name, street, zipcode, city, county, username, password, role))
+            (name, street, zipcode, city, county, username, password, role))
         connection.commit()
         print("-" * 65)
         print("Noul client a fost adaugat cu succes!")
     except sqlite3.Error as sqerr:
         print(f"SQLite error occurred while opening the database: {sqerr}")
+
 
 def delete_user(connection: sqlite3.Connection, cursor: sqlite3.Cursor):
     """
@@ -266,6 +263,7 @@ def delete_user(connection: sqlite3.Connection, cursor: sqlite3.Cursor):
                 print("""Alegere invalida! Alege intre 'y' si 'n'.""")
     except sqlite3.Error as sqerr:
         raise RuntimeError("An error occurred while accessing the database.") from sqerr
+
 
 def get_client_info(username: str, cursor: sqlite3.Cursor) -> dict:
     """
@@ -789,7 +787,7 @@ def set_excel_name(username: str, bill_year: int, bill_serial: str) -> str:
         return str(excel_folder / excel_name)
     except OSError as oserr:
         raise OSError(
-            f"""Error creating directory for the Excel export: {str(oserr)}""")
+            f"""Error creating directory for the Excel export""") from oserr
 
 
 def export_excel_table(cursor: sqlite3.Cursor, username: str, bill_year: int):

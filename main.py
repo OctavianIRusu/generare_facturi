@@ -30,18 +30,16 @@ Dependencies:
 
 For more information, refer to the README file.
 """
-
 import sys
 import time
 
 from bill_database import (add_new_user, authenticate, close_database,
-                           create_consumption_table, export_excel_table,
-                           generate_bill_input, generate_excel_input,
-                           get_bill_info, get_client_info, get_index_input,
-                           open_database, perform_database_operation,
-                           provide_new_index, delete_user)
+                           create_consumption_table, delete_user,
+                           export_excel_table, generate_bill_input,
+                           generate_excel_input, get_bill_info,
+                           get_client_info, get_index_input, open_database,
+                           perform_database_operation, provide_new_index)
 from generate_bill import generate_pdf_bill, set_pdf_name
-
 
 class AuthenticationError(Exception):
     """
@@ -73,7 +71,6 @@ class AuthenticationError(Exception):
             str: The error message of the exception.
         """
         return self.message
-
 
 class MenuHandler:
     """
@@ -143,16 +140,25 @@ class MenuHandler:
                 self.display_admin_menu()
             else:
                 self.display_user_menu()
-            choice = int(input("Alege optiunea din meniu: "))
-            print("-" * 65)
-
-            menu_action = menu_actions.get(choice)
-            if menu_action:
+            try:
+                choice = input("Alege optiunea din meniu: ")
+                if not choice.isdigit() or int(choice) not in menu_actions:
+                    raise ValueError(f"Introdu un numar intre 1 si {len(menu_actions)}!")
+                choice = int(choice)
+                menu_action = menu_actions[choice]
                 menu_action()
-            else:
-                print("Optiune invalida. Incearca din nou.")
+            except ValueError as verr:
+                print(f"Eroare: {verr}")
 
     def handle_user_menu(self):
+        """
+        Handle the user menu options.
+
+        This method sets up a dictionary `menu_actions` with numeric choices 
+        as keys and corresponding menu actions as values. 
+        It then calls the `handle_menu` method with the `menu_actions` 
+        dictionary as an argument.
+        """
         menu_actions = {
             1: self.generate_pdf_bill_menu_action,
             2: self.generate_excel_table_menu_action,
@@ -162,6 +168,14 @@ class MenuHandler:
         self.handle_menu(menu_actions)
 
     def handle_admin_menu(self):
+        """
+        Handle the admin menu options.
+
+        This method sets up a dictionary `menu_actions` with numeric choices 
+        as keys and corresponding menu actions as values. 
+        It then calls the `handle_menu` method with the `menu_actions` 
+        dictionary as an argument.
+        """
         menu_actions = {
             1: self.add_new_user_menu_action,
             2: self.modify_user_info_menu_action,
@@ -172,6 +186,21 @@ class MenuHandler:
         self.handle_menu(menu_actions)
 
     def generate_pdf_bill_menu_action(self):
+        """
+        Generate a PDF bill for the user's selected month.
+
+        This method prompts the user to enter the year and month for which 
+        they want to generate a bill. It retrieves the bill serial and number 
+        for the specified month and year from the database. Then it sets the 
+        file name for the generated PDF bill based on the bill serial and number.
+        It retrieves the client information, bill information, and bill details 
+        from the database. Finally, it generates the PDF bill using the 
+        retrieved information.
+
+        If a TypeError occurs, it is likely due to missing consumption records 
+        for the selected month. In such cases, an error message is displayed 
+        indicating that consumption data is not available.
+        """
         try:
             bill_year, bill_month = generate_bill_input()
             bill_serial = get_bill_info(
@@ -205,9 +234,14 @@ class MenuHandler:
             print(str(err))
 
     def logout_menu_action(self):
-        print(f"Ai fost delogat/a! La revedere, {self.username}!")
-        quit()
+        """
+        Performs the logout action.
 
+        Prints a logout message with the username and exits the program.
+        """
+        print(f"Ai fost delogat/a! La revedere, {self.username}!")
+        sys.exit()
+        
     def add_new_user_menu_action(self):
         add_new_user(self.connection, self.cursor)
 
