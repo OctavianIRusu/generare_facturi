@@ -724,23 +724,16 @@ def generate_bill_input() -> tuple:
         ValueError: If the provided bill month is out of range (not between 1 and 12).
     """
     try:
-        bill_year = int(input(
-            "Introdu anul pentru care vrei sa generezi factura PDF: "))
-        bill_month = int(input(
-            "Introdu luna pentru care vrei sa generezi factura PDF: "))
-
-        if not 1 <= bill_month <= 12:
-            raise ValueError("""Invalid month. 
-                    Please enter a value between 1 and 12.""")
-
         current_year = date.today().year
-        if not 2020 <= bill_year <= current_year:
-            raise ValueError(f"""Invalid Year. 
-                    Please enter a value between 2020 and {current_year}.""")
-
-        return bill_year, bill_month
-    except TypeError as terr:
-        print(terr)
+        bill_year = input("Introdu anul pentru care vrei sa generezi factura PDF: ")
+        if not bill_year.isdigit() or not 2020 <= int(bill_year) <= current_year:
+            raise ValueError(f"An invalid! Introdu o valoare intre 2020 si {current_year}!")
+        bill_month = input("Introdu numarul lunii pentru care vrei sa generezi factura PDF: ")
+        if not bill_month.isdigit() or not 1 <= int(bill_month) <= 12:
+            raise ValueError("Luna invalida! Introdu o valoare intre 1 si 12!")
+        return (int(bill_year), int(bill_month))
+    except ValueError as verr:
+        print(f"Eroare: {verr}")
 
 
 def generate_excel_input() -> int:

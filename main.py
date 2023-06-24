@@ -201,22 +201,28 @@ class MenuHandler:
         for the selected month. In such cases, an error message is displayed 
         indicating that consumption data is not available.
         """
-        try:
-            bill_year, bill_month = generate_bill_input()
-            bill_serial = get_bill_info(
-                self.username, bill_year, bill_month, self.cursor)["bill_serial"]
-            bill_number = get_bill_info(
-                self.username, bill_year, bill_month, self.cursor)["bill_number"]
-            file_name = set_pdf_name(bill_serial, bill_number)
-            client_info = get_client_info(self.username, self.cursor)
-            bill_info = get_bill_info(
-                self.username, bill_year, bill_month, self.cursor)
-            bill_details = create_consumption_table(
-                self.username, bill_year, bill_month, self.cursor)
-            generate_pdf_bill(file_name, client_info, bill_info, bill_details)
-        except TypeError:
-            print("-" * 65)
-            print("Eroare: Nu a fost inregistrat consumul pentru luna aleasa!")
+        while True:
+            try:
+                bill_year, bill_month = generate_bill_input()
+                break
+            except TypeError:
+                print("Eroare: Date invalide! Nu s-a putut genera factura!")
+                print("-" * 65)
+            try:
+                bill_serial = get_bill_info(
+                    self.username, bill_year, bill_month, self.cursor)["bill_serial"]
+                bill_number = get_bill_info(
+                    self.username, bill_year, bill_month, self.cursor)["bill_number"]
+            except TypeError:
+                print("Eroare!")
+        file_name = set_pdf_name(bill_serial, bill_number)
+        client_info = get_client_info(self.username, self.cursor)
+        bill_info = get_bill_info(
+            self.username, bill_year, bill_month, self.cursor)
+        bill_details = create_consumption_table(
+            self.username, bill_year, bill_month, self.cursor)
+        generate_pdf_bill(file_name, client_info, bill_info, bill_details)
+
 
     def generate_excel_table_menu_action(self):
         bill_year = generate_excel_input()
