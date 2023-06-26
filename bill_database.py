@@ -185,7 +185,7 @@ def close_database(connection: sqlite3.Connection):
         print(f"Eroare la inchiderea bazei de date: {sqerr}")
 
 def authenticate(
-    username: str, 
+    username: str,
     password: str,
     cursor: sqlite3.Cursor) -> tuple[bool, bool]:
     """
@@ -199,19 +199,13 @@ def authenticate(
 
     Returns:
         tuple: A tuple containing two boolean values:
-            The first value represents the authentication status:
-                (True for successful authentication, False otherwise).
-            The second value represents the admin status:
-                (True if the authenticated user is an admin, False otherwise).
+            The first value represents the authentication status.
+            The second value represents the admin status.
 
     Raises:
-        TypeError: If the provided cursor is not of type sqlite3.Cursor.
         sqlite3.Error: If there is an error while executing the SQL statement 
             or fetching the result.
     """
-    if not isinstance(cursor, sqlite3.Cursor):
-        raise TypeError("Obiect invalid. Este necesar tipul sqlite3.Cursor.")
-    
     try:
         cursor.execute("""SELECT role FROM users 
             WHERE username = ? AND password = ?""", (username, password))
@@ -223,7 +217,7 @@ def authenticate(
             return True, False
         return False, False
     except sqlite3.Error as sqerr:
-        print(f"SQLite error occurred while opening the database: {sqerr}")
+        print(f"Eroare generata la accesarea bazei de date: {sqerr}")
 
 def add_new_user(connection: sqlite3.Connection, cursor: sqlite3.Cursor):
     """

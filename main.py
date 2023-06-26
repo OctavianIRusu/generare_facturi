@@ -30,6 +30,7 @@ Dependencies:
 
 For more information, refer to the README file.
 """
+import sqlite3
 import sys
 import time
 
@@ -333,6 +334,8 @@ class MenuHandler:
             except AuthenticationError as aerr:
                 print(str(aerr))
                 continue
+            except sqlite3.Error as sqerr:
+                print(str(sqerr))
             
 if __name__ == "__main__":
     menu_handler = MenuHandler()
