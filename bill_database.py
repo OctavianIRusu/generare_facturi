@@ -42,6 +42,7 @@ Please note that this module requires the following external libraries:
 import calendar
 import os
 import sqlite3
+import subprocess
 from datetime import date
 from pathlib import Path
 
@@ -193,8 +194,8 @@ def authenticate(
     checking against a user table in a SQLite database.
 
     Args:
-    username (str): The username of the user.
-    password (str): The password of the user.
+    username (str): The username provided by the user.
+    password (str): The password provided by the user.
     cursor (sqlite3.Cursor): A cursor object for executing SQL statements.
 
     Returns:
@@ -207,7 +208,7 @@ def authenticate(
             or fetching the result.
     """
     try:
-        cursor.execute("""SELECT role FROM users 
+        cursor.execute("""SELECT role FROM users
             WHERE username = ? AND password = ?""", (username, password))
         result = cursor.fetchone()
         if result:
@@ -1055,6 +1056,7 @@ def export_excel_table(cursor: sqlite3.Cursor, username: str, bill_year: int):
             if not os.path.exists(os.path.dirname(excel_name)):
                 os.makedirs(os.path.dirname(excel_name))
             data_frame.to_excel(excel_name, index=False)
+            subprocess.Popen(["start", "", excel_name], shell=True)
         except OSError as oserr:
             error_msg = f"Eroare la crearea fisierului {str(excel_name)}!"
             raise OSError(error_msg) from oserr

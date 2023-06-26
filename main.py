@@ -31,6 +31,7 @@ Dependencies:
 For more information, refer to the README file.
 """
 import sqlite3
+import subprocess
 import sys
 import time
 
@@ -60,17 +61,18 @@ class MenuHandler:
         self.username = ""
         self.is_admin = False
 
-    def display_menu(self, menu_options, menu_title):
+    def display_menu(self, menu_title, menu_options):
         """
         Display the menu options.
 
         Args:
             menu_options (list): List of menu options (user/admin).
+            menu_title (str): The menu type, depending on user role.
         """
         print(menu_title)
         for key, value in menu_options.items():
             print(f"{key}. {str(value)}")
-        print("-" * 65)
+        print(LINE_SEPARATOR)
 
     def display_user_menu(self):
         """
@@ -83,7 +85,7 @@ class MenuHandler:
             3: "Adauga index contor energie electrica",
             4: "Delogare"
         }
-        self.display_menu(menu_options, menu_title)
+        self.display_menu(menu_title, menu_options)
 
     def display_admin_menu(self):
         """
@@ -108,7 +110,7 @@ class MenuHandler:
         """
         while True:
             time.sleep(0.5)
-            print("-" * 65)
+            print(LINE_SEPARATOR)
             if self.is_admin:
                 self.display_admin_menu()
             else:
@@ -116,12 +118,13 @@ class MenuHandler:
             try:
                 choice = input("Alege optiunea din meniu: ")
                 if not choice.isdigit() or int(choice) not in menu_actions:
-                    raise ValueError(f"Introdu un numar intre 1 si {len(menu_actions)}!")
+                    raise ValueError(
+                        f"Introdu un numar intre 1 si {len(menu_actions)}!")
                 choice = int(choice)
                 menu_action = menu_actions[choice]
                 menu_action()
             except ValueError as verr:
-                print("-" * 65)
+                print(LINE_SEPARATOR)
                 print(f"Eroare: {verr}")
 
     def handle_user_menu(self):
@@ -142,17 +145,16 @@ class MenuHandler:
         try:
             self.handle_menu(menu_actions)
         except ValueError as verr:
-            print("-" * 65)
-            print(verr)
+            print(LINE_SEPARATOR)
+            print(f"Eroare: {verr}")
 
     def handle_admin_menu(self):
         """
         Handle the admin menu options.
 
-        This method sets up a dictionary `menu_actions` with numeric choices 
-        as keys and corresponding menu actions as values. 
-        It then calls the `handle_menu` method with the `menu_actions` 
-        dictionary as an argument.
+        This method sets up a dictionary with numeric choices as keys and
+        corresponding menu actions as values. It then calls the `handle_menu`
+        method with the `menu_actions` dictionary as an argument.
         """
         menu_actions = {
             1: self.add_new_user_menu_action,
@@ -164,8 +166,8 @@ class MenuHandler:
         try:
             self.handle_menu(menu_actions)
         except ValueError as verr:
-            print("-" * 65)
-            print(verr)
+            print(LINE_SEPARATOR)
+            print(f"Eroare: {verr}")
 
     def generate_pdf_bill_menu_action(self):
         """
@@ -196,6 +198,7 @@ class MenuHandler:
             bill_details = create_consumption_table(
                 self.username, bill_year, bill_month, self.cursor)
             generate_pdf_bill(file_name, client_info, bill_info, bill_details)
+            subprocess.Popen(["start", "", file_name], shell=True)
         except TypeError:
             print("Eroare: Nu au fost extrase date valide din baza de date!")
         except OSError:
@@ -244,7 +247,7 @@ class MenuHandler:
         close_database(self.connection)
         print(f"Ai fost delogat/a! La revedere, {self.username}!")
         sys.exit()
-        
+
     def add_new_user_menu_action(self):
         """
         Executes the action for adding a new user to the system.
@@ -312,7 +315,6 @@ class MenuHandler:
         """
         print(LINE_SEPARATOR)
         print("Bine ai venit! Pentru a continua este necesara autentificarea!")
-        
         while True:
             print(LINE_SEPARATOR)
             self.username = input("Introduceti numele de utilizator: ")
@@ -323,8 +325,8 @@ class MenuHandler:
                     self.username, password, self.cursor)
                 print(LINE_SEPARATOR)
                 if authenticated:
-                    print("Salut, {}! Ai fost autentificat/a ca {}.".format(
-                        self.username, 'administrator' if self.is_admin else 'user'))
+                    print(f"Salut, {self.username}! Ai fost autentificat/a ca "
+                          f"{'administrator' if self.is_admin else 'user'}.")
                     if self.is_admin:
                         self.handle_admin_menu()
                     else:
@@ -336,8 +338,7 @@ class MenuHandler:
                 continue
             except sqlite3.Error as sqerr:
                 print(str(sqerr))
-            
+
 if __name__ == "__main__":
     menu_handler = MenuHandler()
     menu_handler.main()
-    
