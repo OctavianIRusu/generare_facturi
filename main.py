@@ -40,40 +40,10 @@ from bill_database import (add_new_user, authenticate, close_database,
                            get_client_info, get_index_input, modify_index,
                            modify_user_address, open_database,
                            perform_database_operation, provide_new_index)
+from exceptions import AuthenticationError
 from generate_bill import generate_pdf_bill, set_pdf_name
 
-
-class AuthenticationError(Exception):
-    """
-    Exception raised for authentication errors.
-
-    Attributes:
-        message (str): The error message describing the authentication error.
-
-    Methods:
-        __init__(self, message): Initialize the AuthenticationError instance.
-        __str__(self): Return a string representation of the exception.
-    """
-
-    def __init__(self, message):
-        """
-        Initialize the AuthenticationError instance.
-
-        Args:
-            message (str): The error message describing the authentication error.
-        """
-        self.message = message
-        super().__init__(self.message)
-
-    def __str__(self):
-        """
-        Return a string representation of the exception.
-
-        Returns:
-            str: The error message of the exception.
-        """
-        return self.message
-
+LINE_SEPARATOR = "-" * 65
 class MenuHandler:
     """
     A class that handles the menu options and actions for the billing application.
@@ -94,7 +64,7 @@ class MenuHandler:
         Display the menu options.
 
         Args:
-            menu_options (list): List of menu options.
+            menu_options (list): List of menu options (user/admin).
         """
         print(menu_title)
         for key, value in menu_options.items():
@@ -136,7 +106,7 @@ class MenuHandler:
             menu_actions (dict): Dictionary mapping menu options to actions.
         """
         while True:
-            time.sleep(1)
+            time.sleep(0.5)
             print("-" * 65)
             if self.is_admin:
                 self.display_admin_menu()
@@ -339,35 +309,31 @@ class MenuHandler:
         """
         Main function to run the application.
         """
-        print("-" * 65)
+        print(LINE_SEPARATOR)
         print("Bine ai venit! Pentru a continua este necesara autentificarea!")
+        
         while True:
-            print("-" * 65)
-            username = input("Introduceti numele de utilizator: ")
+            print(LINE_SEPARATOR)
+            self.username = input("Introduceti numele de utilizator: ")
             password = input("Introduceti parola: ")
-            time.sleep(1)
-
+            time.sleep(0.5)
             try:
                 authenticated, self.is_admin = authenticate(
-                    username, password, self.cursor)
-                print("-" * 65)
-
+                    self.username, password, self.cursor)
+                print(LINE_SEPARATOR)
                 if authenticated:
-                    print(f"Salut, {username}! Ai fost autentificat/a ca {'administrator' if self.is_admin else 'user'}.")
-                    self.username = username
-
+                    print("Salut, {}! Ai fost autentificat/a ca {}.".format(
+                        self.username, 'administrator' if self.is_admin else 'user'))
                     if self.is_admin:
                         self.handle_admin_menu()
                     else:
                         self.handle_user_menu()
                 else:
-                    raise AuthenticationError(
-                        "Autentificare esuata! Username sau parola gresita!")
+                    raise AuthenticationError("Username sau parola gresita!")
             except AuthenticationError as aerr:
                 print(str(aerr))
                 continue
-            break
-
+            
 if __name__ == "__main__":
     menu_handler = MenuHandler()
     menu_handler.main()
