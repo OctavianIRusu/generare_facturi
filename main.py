@@ -191,6 +191,9 @@ class MenuHandler:
             print("Eroare: Nu au fost extrase date valide din baza de date!")
         except OSError:
             print("Eroare sistem! Nu s-a putut crea calea catre fisierul pdf!")
+        except KeyboardInterrupt:
+            print(f"\n{LINE_SEPARATOR}")
+            print(str("!Programul a fost întrerupt de utilizator!"))
 
     def generate_excel_table_menu_action(self):
         """
@@ -207,6 +210,9 @@ class MenuHandler:
             print("Eroare: Date invalide! Nu s-a putut genera exportul!")
         except OSError:
             print("Eroare sistem! Nu s-a putut crea calea catre fisierul excel!")
+        except KeyboardInterrupt:
+            print(f"\n{LINE_SEPARATOR}")
+            print(str("!Programul a fost întrerupt de utilizator!"))
 
     def add_index_menu_action(self):
         """
@@ -226,7 +232,7 @@ class MenuHandler:
             print(LINE_SEPARATOR)
             print(str(verr))
         except KeyboardInterrupt as kierr:
-            print(LINE_SEPARATOR)
+            print(f"\n{LINE_SEPARATOR}")
             print(str(kierr))
         except TypeError as terr:
             print(LINE_SEPARATOR)
@@ -238,11 +244,17 @@ class MenuHandler:
 
         Closes the database, prints a logout message and exits the program.
         """
-        close_database(self.connection)
-        print(LINE_SEPARATOR)
-        print(f"Ai fost delogat/a! La revedere, {self.username}!")
-        print(LINE_SEPARATOR)
-        sys.exit()
+        try:
+            close_database(self.connection)
+            print(LINE_SEPARATOR)
+            print(f"Ai fost delogat/a! La revedere, {self.username}!")
+            print(LINE_SEPARATOR)
+            sys.exit()
+        except KeyboardInterrupt:
+            print(f"\n{LINE_SEPARATOR}")
+            print(str("!Programul a fost întrerupt de utilizator!"))
+        except sqlite3.Error as sqerr:
+            print(sqerr)
 
     def add_new_user_menu_action(self):
         """
@@ -252,7 +264,17 @@ class MenuHandler:
         connection and cursor as parameters. The `add_new_user` function 
         performs the necessary steps to add a new user to the system.
         """
-        add_new_user(self.connection, self.cursor)
+        try:
+            add_new_user(self.connection, self.cursor)
+        except sqlite3.Error as sqerr:
+            print(LINE_SEPARATOR)
+            print(sqerr)
+        except ValueError as verr:
+            print(LINE_SEPARATOR)
+            print(verr)
+        except KeyboardInterrupt:
+            print(f"\n{LINE_SEPARATOR}")
+            print(str("!Programul a fost întrerupt de utilizator!"))
 
     def modify_user_info_menu_action(self):
         """
@@ -271,6 +293,9 @@ class MenuHandler:
         except LookupError as lerr:
             print(LINE_SEPARATOR)
             print(str(lerr))
+        except KeyboardInterrupt:
+            print(f"\n{LINE_SEPARATOR}")
+            print(str("!Programul a fost întrerupt de utilizator!"))
 
     def modify_index_menu_action(self):
         """
@@ -280,7 +305,7 @@ class MenuHandler:
         try:
             update_index(self.connection, self.cursor)
         except KeyboardInterrupt as kierr:
-            print(LINE_SEPARATOR)
+            print(f"\n{LINE_SEPARATOR}")
             print(str(kierr))
         except ValueError:
             print(LINE_SEPARATOR)
@@ -312,11 +337,11 @@ class MenuHandler:
         print(LINE_SEPARATOR)
         print("Bine ai venit! Pentru a continua este necesara autentificarea!")
         while True:
-            print(LINE_SEPARATOR)
-            self.username = input("Introduceti numele de utilizator: ")
-            password = input("Introduceti parola: ")
-            time.sleep(0.5)
             try:
+                print(LINE_SEPARATOR)
+                self.username = input("Introduceti numele de utilizator: ")
+                password = input("Introduceti parola: ")
+                time.sleep(0.5)
                 authenticated, self.is_admin = authenticate(
                     self.username, password, self.cursor)
                 print(LINE_SEPARATOR)
@@ -332,8 +357,13 @@ class MenuHandler:
             except AuthenticationError as aerr:
                 print(str(aerr))
                 continue
-            except sqlite3.Error as sqerr:
-                print(str(sqerr))
+            except sqlite3.Error:
+                print(LINE_SEPARATOR)
+                print(str("Eroare: Baza de date nu a putut fi accesata!"))
+            except KeyboardInterrupt:
+                print(f"\n{LINE_SEPARATOR}")
+                print("!Programul a fost întrerupt de utilizator!")
+                sys.exit()
 
 if __name__ == "__main__":
     menu_handler = MenuHandler()

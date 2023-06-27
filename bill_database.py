@@ -45,67 +45,36 @@ import sqlite3
 import subprocess
 from datetime import date
 from pathlib import Path
+import csv
 
 import pandas as pd
 from dateutil.relativedelta import relativedelta
 
-LINE_SEPARATOR = "-" * 65
+LINE_SEPARATOR = "-" * 80
 
 # Set the root folder path and database path
 MAIN_FOLDER_ROOT = Path(__file__).parent
 DB_FILE = MAIN_FOLDER_ROOT / "bill_database.sqlite"
+LOCALITY_LIST_FILE = MAIN_FOLDER_ROOT / "lista_localitati.csv"
 
 # Dictionary that maps Romanian counties to their corresponding abbreviations
 RO_COUNTIES_ABBR = {
-    "Alba": "AB",
-    "Arad": "AR",
-    "Arges": "AG",
-    "Bacau": "BC",
-    "Bihor": "BH",
-    "Bistrita-Nasaud": "BN",
-    "Botosani": "BT",
-    "Brasov": "BV",
-    "Braila": "BR",
-    "Buzau": "BZ",
-    "Caras-Severin": "CS",
-    "Calarasi": "CL",
-    "Cluj": "CJ",
-    "Constanta": "CT",
-    "Covasna": "CV",
-    "Dambovita": "DB",
-    "Dolj": "DJ",
-    "Galati": "GL",
-    "Giurgiu": "GR",
-    "Gorj": "GJ",
-    "Harghita": "HR",
-    "Hunedoara": "HD",
-    "Ialomita": "IL",
-    "Iasi": "IS",
-    "Ilfov": "IF",
-    "Maramures": "MM",
-    "Mehedinti": "MH",
-    "Mures": "MS",
-    "Neamt": "NT",
-    "Olt": "OT",
-    "Prahova": "PH",
-    "Satu Mare": "SM",
-    "Salaj": "SJ",
-    "Sibiu": "SB",
-    "Suceava": "SV",
-    "Teleorman": "TR",
-    "Timis": "TM",
-    "Tulcea": "TL",
-    "Vaslui": "VS",
-    "Valcea": "VL",
-    "Vrancea": "VN"
+    "Alba": "AB", "Arad": "AR", "Arges": "AG", "Bacau": "BC", "Bihor": "BH",
+    "Bistrita-Nasaud": "BN", "Botosani": "BT", "Brasov": "BV", "Braila": "BR",
+    "Buzau": "BZ", "Caras-Severin": "CS", "Calarasi": "CL", "Cluj": "CJ",
+    "Constanta": "CT", "Covasna": "CV", "Dambovita": "DB", "Dolj": "DJ",
+    "Galati": "GL", "Giurgiu": "GR", "Gorj": "GJ", "Harghita": "HR",
+    "Hunedoara": "HD", "Ialomita": "IL", "Iasi": "IS", "Ilfov": "IF",
+    "Maramures": "MM", "Mehedinti": "MH", "Mures": "MS", "Neamt": "NT",
+    "Olt": "OT", "Prahova": "PH", "Satu Mare": "SM", "Salaj": "SJ",
+    "Sibiu": "SB", "Suceava": "SV", "Teleorman": "TR", "Timis": "TM",
+    "Tulcea": "TL", "Vaslui": "VS", "Valcea": "VL", "Vrancea": "VN"
 }
 
 # Dictionary that stores the price per unit for various charge categories
 PRICE_PER_UNIT = {
-    "energie_consumata": 1.40182,
-    "acciza_necomerciala": 6.05,
-    "certificate_verzi": 71.68059,
-    "oug_27": 0.90812
+    "energie_consumata": 1.40182, "acciza_necomerciala": 6.05,
+    "certificate_verzi": 71.68059, "oug_27": 0.90812
 }
 
 # Current TVA value
@@ -169,8 +138,7 @@ def close_database(connection: sqlite3.Connection):
         raise sqlite3.Error(f"Eroare la inchiderea bazei de date!") from sqerr
 
 def authenticate(
-    username: str,
-    password: str,
+    username: str, password: str,
     cursor: sqlite3.Cursor) -> tuple[bool, bool]:
     """
     Authenticates a user based on the provided username and password by 
@@ -182,103 +150,159 @@ def authenticate(
     cursor (sqlite3.Cursor): A cursor object for executing SQL statements.
 
     Returns:
-        tuple: A tuple containing two boolean values:
-            The first value represents the authentication status.
-            The second value represents the admin status.
+        tuple: A tuple containing two values: authentication and admin status.
 
     Raises:
-        sqlite3.Error: If there is an error while executing the SQL statement 
-            or fetching the result.
+        sqlite3.Error: If there is an error while executing the SQL statement.
     """
-    try:
-        cursor.execute("""SELECT role FROM users
-            WHERE username = ? AND password = ?""", (username, password))
-        result = cursor.fetchone()
-        if result:
-            role = result[0]
-            if role == 'admin':
-                return True, True
-            return True, False
-        return False, False
-    except sqlite3.Error as sqerr:
-        print(f"Eroare generata la accesarea bazei de date: {sqerr}")
+    cursor.execute(
+        """SELECT role FROM users
+        WHERE username = ? AND password = ?""", (username, password))
+    result = cursor.fetchone()
+    if result:
+        role = result[0]
+        if role == 'admin':
+            return True, True
+        return True, False
+    return False, False
+
+def check_location_exists(location, file_path):
+    """
+    Checks if a county exists in the specified CSV file.
+
+    Args:
+        location (str): The county/locality name to search for.
+        file_path (str): The path to the CSV file.
+
+    Returns:
+        bool: True if the location exists, False otherwise.
+
+    Raises:
+        FileNotFoundError: If the specified file does not exist.
+    """
+    with open(file_path, 'r', encoding='utf-8') as file:
+        reader = csv.reader(file)
+        for row in reader:
+            if location.capitalize() in row:
+                return True
+    return False
+
+def get_zipcode(location, file_path):
+    """
+    Retrieves the ZIP code associated with a given locality from a CSV file.
+
+    Args:
+        locality (str): The name of the locality.
+        file_path (str): The path to the CSV file.
+
+    Returns:
+        str: The ZIP code for the specified locality, or None if not found.
+    """
+    with open(file_path, 'r', encoding='utf-8') as file:
+        reader = csv.reader(file)
+        for row in reader:
+            if row[0] == location.capitalize():
+                return row[3]
+    return None
 
 def add_new_user(connection: sqlite3.Connection, cursor: sqlite3.Cursor):
     """
     Adds a new user to the database based on the provided information.
 
     Args:
-        connection (sqlite3.Connection): 
-            A connection object to the SQLite database.
+        connection (sqlite3.Connection): A connection object.
         cursor (sqlite3.Cursor): A cursor object for executing SQL statements.
 
     Raises:
-        sqlite3.Error: If there is an error during the execution of the SQL 
-            statement.
+        sqlite3.Error: If an error occurs when SQL statement is executed.
     """
-    try:
-        name = input("Introdu prenume si nume: ")
-        street = input("Introdu adresa (strada, nr, bloc, apartament): ")
-        zipcode = input("Introdu codul postal: ")
-        city = input("Introdu localitatea: ")
-        county = input("Introdu judetul: ")
-        username = "".join([s.lower() for s in name.split()])
-        password = username
-        role = input("Alege tip user (user/admin): ")
+    while True:
+        try:
+            name = input("Introdu prenume si nume: ")
+            name_parts = name.strip().split()
+            formatted_name = ' '.join([part.capitalize() for part in name_parts])
+            if len(name_parts) < 2:
+                raise ValueError("Numele trebuie sa contina un prenume si un nume!")
+            break
+        except ValueError as verr:
+            print(LINE_SEPARATOR)
+            print(verr)
+            print(LINE_SEPARATOR)
+    while True:
+        try:
+            county = input("Introdu judetul: ")
+            if not check_location_exists(county, LOCALITY_LIST_FILE):
+                raise ValueError("Judetul furnizat nu exista!")
+            break
+        except ValueError as verr:
+            print(LINE_SEPARATOR)
+            print(verr)
+            print(LINE_SEPARATOR)
+    while True:
+        try:
+            city = input("Introdu localitatea: ")
+            if not check_location_exists(city, LOCALITY_LIST_FILE):
+                raise ValueError("Localitatea furnizata nu exista!")
+            break
+        except ValueError as verr:
+            print(LINE_SEPARATOR)
+            print(verr)
+            print(LINE_SEPARATOR)
 
-        cursor.execute('''INSERT INTO users (name, street, zipcode, city,
-            county, username, password, role)
+    street = input("Introdu adresa (strada, nr, bloc, apartament): ")
+    zipcode = get_zipcode(city, LOCALITY_LIST_FILE)
+    username = "".join([s.lower() for s in name.split()])
+    password = username
+    role = input("Alege tip user (user/admin): ")
+    try:
+        if role.lower() not in ["user", "admin"]:
+            raise ValueError("Rolul ales poate fi doar 'user' sau 'admin'!")
+        cursor.execute('''INSERT INTO users (
+            name, street, zipcode, city, county, username, password, role)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)''',
-            (name, street, zipcode, city, county, username, password, role))
+            (formatted_name, street, zipcode, city, county, username, password, role))
         connection.commit()
         print(LINE_SEPARATOR)
         print("Noul client a fost adaugat cu succes!")
+        print(f"Date de autentificare: username: {username}, parola: {password}.")
     except sqlite3.Error as sqerr:
         print(f"Eroare la accesarea bazei de date: {sqerr}")
+    except FileNotFoundError as fnferr:
+        print(f"Lista cu localitati nu a putut fi accesata: {fnferr}")
 
 def search_user(cursor: sqlite3.Cursor):
     """
-    Searches for a user in the 'users' table based on the entered username.
+    Searches for a user in the 'users' table based on the username.
 
     Args:
         cursor (sqlite3.Cursor): The cursor object for executing SQL queries.
     
     Returns:
-        username (str): The username of the existing client
+        username (str): The username of the existing client.
+        
     Raises:
         LookupError: If no client with the given username is found in the table.
     """
     while True:
-        try:
-            username = str(input("Introdu username-ul clientului: "))
-            cursor.execute('''SELECT COUNT(*) FROM users
-                        WHERE username = ?''',
-                        (username,))
-            result = cursor.fetchone()
-            if result[0] == 0:
-                raise LookupError("Nu a fost gasit niciun client cu acest username!")
-            break
-        except LookupError as lerr:
-            print(str(lerr))
-        print(LINE_SEPARATOR)
+        username = str(input("Introdu username-ul clientului: "))
+        cursor.execute('''SELECT COUNT(*) FROM users
+                       WHERE username = ?''', (username,))
+        result = cursor.fetchone()
+        if result[0] == 0:
+            raise LookupError(f'Nu exista niciun client "{username}"!')
+        break
     return username
 
 def modify_user_address(connection: sqlite3.Connection, cursor: sqlite3.Cursor):
     """
     Modifies a specific field in the users table of the SQLite database.
 
-    This function prompts the admin to select a field from the editable fields
-    in the users table and enter a new value for that field. The function
-    then executes an SQL UPDATE query to update the specified field with the
-    new value for the given username.
-
-    Parameters:
-        connection (sqlite3.Connection): A connection object representing the 
-            connection to the SQLite database.
-        cursor (sqlite3.Cursor): A cursor object for the given connection.
+    Args:
+        connection (sqlite3.Connection): A connection object.
+        cursor (sqlite3.Cursor): The cursor object for executing SQL queries.
 
     Raises:
-    - ValueError: If the selected field is not a valid field in the users table.
+        sqlite3.Error: If there is an error while executing the SQL statement.
     """
     try:
         username = search_user(cursor)
@@ -287,16 +311,16 @@ def modify_user_address(connection: sqlite3.Connection, cursor: sqlite3.Cursor):
         city = input("Introdu noua localitate: ")
         county = input("Introdu noul judet: ")
         cursor.execute('''UPDATE users SET street = ?, zipcode = ?,
-                    city = ?, county = ?
-                    WHERE username = ?''',
-                    (street, zipcode, city, county, username))
+                       city = ?, county = ?
+                       WHERE username = ?''',
+                       (street, zipcode, city, county, username))
         connection.commit()
         print(LINE_SEPARATOR)
         print("Informatiile au fost actualizate cu succes!")
     except LookupError as lerr:
-            print(str(lerr))
+            print(lerr)
     except sqlite3.Error as sqerr:
-        raise RuntimeError("An error occurred while accessing the database.") from sqerr
+        print(f"Eroare la accesarea bazei de date: {sqerr}")
 
 def delete_user(connection: sqlite3.Connection, cursor: sqlite3.Cursor):
     """
