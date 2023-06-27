@@ -4,19 +4,6 @@ main.py
 This module provides classes and functions for displaying menus and handling 
 user input.
 
-Classes:
-- MenuHandler: Handles the display and interaction of menus for both users 
-and administrators.
-
-Exceptions:
-- AuthenticationError: Raised when authentication fails during login.
-
-Functions:
-- open_database(): Opens a connection to the database.
-- perform_database_operation(): Performs a database operation using the 
-provided connection.
-- close_database(): Closes the database connection.
-
 Usage:
 1. Create an instance of MenuHandler.
 2. Call the main() method to start the application.
@@ -40,10 +27,12 @@ from bill_database import (LINE_SEPARATOR, add_new_user, authenticate,
                            delete_user, export_excel_table,
                            generate_bill_input, generate_excel_input,
                            get_bill_info, get_client_info, get_index_input,
-                           update_index, modify_user_address, open_database,
-                           perform_database_operation, provide_index)
+                           modify_user_address, open_database,
+                           perform_database_operation, provide_index,
+                           update_index)
 from exceptions import AuthenticationError
 from generate_bill import generate_pdf_bill, set_pdf_name
+
 
 class MenuHandler:
     """
