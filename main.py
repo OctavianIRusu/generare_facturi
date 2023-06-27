@@ -35,17 +35,16 @@ import subprocess
 import sys
 import time
 
-from bill_database import (add_new_user, authenticate, close_database,
-                           create_consumption_table, delete_user,
-                           export_excel_table, generate_bill_input,
-                           generate_excel_input, get_bill_info,
-                           get_client_info, get_index_input, modify_index,
-                           modify_user_address, open_database,
-                           perform_database_operation, provide_new_index)
+from bill_database import (LINE_SEPARATOR, add_new_user, authenticate,
+                           close_database, create_consumption_table,
+                           delete_user, export_excel_table,
+                           generate_bill_input, generate_excel_input,
+                           get_bill_info, get_client_info, get_index_input,
+                           update_index, modify_user_address, open_database,
+                           perform_database_operation, provide_index)
 from exceptions import AuthenticationError
 from generate_bill import generate_pdf_bill, set_pdf_name
 
-LINE_SEPARATOR = "-" * 65
 class MenuHandler:
     """
     A class that handles the menu options and actions for the billing application.
@@ -66,8 +65,8 @@ class MenuHandler:
         Display the menu options.
 
         Args:
-            menu_options (list): List of menu options (user/admin).
             menu_title (str): The menu type, depending on user role.
+            menu_options (dict): Dictionary of menu options depending on role.
         """
         print(menu_title)
         for key, value in menu_options.items():
@@ -99,7 +98,7 @@ class MenuHandler:
             4: "Sterge un client",
             5: "Delogare"
         }
-        self.display_menu(menu_options, menu_title)
+        self.display_menu(menu_title, menu_options)
 
     def handle_menu(self, menu_actions):
         """
@@ -187,7 +186,7 @@ class MenuHandler:
                 break
             except TypeError:
                 print("Eroare: Date invalide! Nu s-a putut genera factura!")
-                print("-" * 65)
+                print(LINE_SEPARATOR)
         try:
             bill_info = get_bill_info(
                 self.username, bill_year, bill_month, self.cursor)
@@ -231,12 +230,18 @@ class MenuHandler:
         try:
             bill_year, bill_month, index_value = get_index_input(
                 self.cursor, self.username)
-            provide_new_index(
+            provide_index(
                 self.connection, self.cursor, self.username, bill_year,
                 bill_month, index_value)
         except ValueError as verr:
-            print("-" * 65)
+            print(LINE_SEPARATOR)
             print(str(verr))
+        except KeyboardInterrupt as kierr:
+            print(LINE_SEPARATOR)
+            print(str(kierr))
+        except TypeError as terr:
+            print(LINE_SEPARATOR)
+            print(str(terr))
 
     def logout_menu_action(self):
         """
@@ -245,7 +250,9 @@ class MenuHandler:
         Closes the database, prints a logout message and exits the program.
         """
         close_database(self.connection)
+        print(LINE_SEPARATOR)
         print(f"Ai fost delogat/a! La revedere, {self.username}!")
+        print(LINE_SEPARATOR)
         sys.exit()
 
     def add_new_user_menu_action(self):
@@ -270,10 +277,10 @@ class MenuHandler:
         try:
             modify_user_address(self.connection, self.cursor)
         except ValueError:
-            print("-" * 65)
+            print(LINE_SEPARATOR)
             print("Operatie nereusita, datele furnizate sunt invalide!")
         except LookupError as lerr:
-            print("-" * 65)
+            print(LINE_SEPARATOR)
             print(str(lerr))
 
     def modify_index_menu_action(self):
@@ -282,15 +289,15 @@ class MenuHandler:
         user for the last month.
         """
         try:
-            modify_index(self.connection, self.cursor)
+            update_index(self.connection, self.cursor)
         except KeyboardInterrupt as kierr:
-            print("-" * 65)
+            print(LINE_SEPARATOR)
             print(str(kierr))
         except ValueError:
-            print("-" * 65)
+            print(LINE_SEPARATOR)
             print("Operatie nereusita, datele furnizate sunt invalide!")
         except LookupError as lerr:
-            print("-" * 65)
+            print(LINE_SEPARATOR)
             print(str(lerr))
 
     def delete_user_menu_action(self):
@@ -300,13 +307,13 @@ class MenuHandler:
         try:
             delete_user(self.connection, self.cursor)
         except LookupError as lerr:
-            print("-" * 65)
+            print(LINE_SEPARATOR)
             print(str(lerr))
         except KeyboardInterrupt as kierr:
-            print("-" * 65)
+            print(LINE_SEPARATOR)
             print(str(kierr))
         except RuntimeError as rterr:
-            print("-" * 65)
+            print(LINE_SEPARATOR)
             print(str(rterr))
 
     def main(self):
