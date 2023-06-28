@@ -71,13 +71,11 @@ RO_COUNTIES_ABBR = {
     "Tulcea": "TL", "Vaslui": "VS", "Valcea": "VL", "Vrancea": "VN"
 }
 
-# Dictionary that stores the price per unit for various charge categories
+# Dictionary that stores the prices and current TVA value
 PRICE_PER_UNIT = {
     "energie_consumata": 1.40182, "acciza_necomerciala": 6.05,
     "certificate_verzi": 71.68059, "oug_27": 0.90812
 }
-
-# Current TVA value
 TVA = 0.19
 
 # Dictionary that stores information about the detailed consumption and price
@@ -419,7 +417,7 @@ def get_bill_info(
             return bill_info_dict
         except TypeError:
             month_name = get_romanian_month_name(bill_month)
-            print(f"Eroare: Nu exista nicio factura pentru luna {month_name} {bill_year}!")
+            print(f"Nu exista nicio factura pentru luna {month_name} {bill_year}!")
     except sqlite3.Error as sqerr:
         print(f"Eroare la conectarea la baza de date: {sqerr}")
 
@@ -650,7 +648,7 @@ def calculate_prices(cursor: sqlite3.Cursor, username: str, bill_year: int,
     except TypeError as terr:
         raise TypeError(f"Invalid index_value: {str(terr)}") from terr
 
-def generate_bill_input() -> tuple:
+def generate_bill_input(cursor: sqlite3.Cursor, username: str) -> tuple:
     """
     Prompts the user to enter the bill year and month for generating a PDF bill.
 
@@ -658,21 +656,58 @@ def generate_bill_input() -> tuple:
         Tuple: A tuple containing the bill year and bill month.
 
     Raises:
-        ValueError: If the provided bill year or bill month is not a valid integer.
-        ValueError: If the provided bill month is out of range (not between 1 and 12).
+        ValueError: If the provided bill year or bill month is not a valid 
+            integer or out of range.
     """
     try:
-        current_year = date.today().year
-        bill_year = input("Introdu anul pentru care vrei sa generezi factura PDF: ")
-        if not bill_year.isdigit() or not 2020 <= int(bill_year) <= current_year:
-            raise ValueError(f"An invalid! Introdu o valoare intre 2020 si {current_year}!")
-        bill_month = input("Introdu numarul lunii pentru care vrei sa generezi factura PDF: ")
-        if not bill_month.isdigit() or not 1 <= int(bill_month) <= 12:
-            raise ValueError("Luna invalida! Introdu o valoare intre 1 si 12!")
+        cursor.execute("""SELECT bill_month, bill_year FROM bills
+                       WHERE username = ?
+                       ORDER BY bill_id ASC""", (username,))
+        row = cursor.fetchall()
+        first_bill_month, first_bill_year = row[0]
+        last_bill_month, last_bill_year = row[-1]
+        ro_fbm = get_romanian_month_name(first_bill_month)
+        ro_lbm = get_romanian_month_name(last_bill_month)
+        years_set = {tuplu[1] for tuplu in row}
+        if len(years_set) > 1:
+            years_set_unpack = ", ".join(str(bill_year) for bill_year in years_set)
+        else:
+            years_set_unpack = str(next(iter(years_set)))
+        print(LINE_SEPARATOR)
+        print(f"Poti genera facturi pentru perioada {ro_fbm} {first_bill_year}"
+              f" - {ro_lbm} {last_bill_year}.")
+        while True:
+            try:
+                print(LINE_SEPARATOR)
+                bill_year = input("Introdu anul pentru care vrei sa generezi factura PDF: ")
+                if not bill_year.isdigit() or int(bill_year) not in years_set:
+                    raise ValueError(f"An invalid! Valori posibile: {years_set_unpack}.")
+                break
+            except ValueError as verr:
+                print(verr)
+        while True:
+            try:
+                months_set = {month for month, year in row if year == int(bill_year)}
+                if len(months_set) > 1:
+                    months_set_unpack = ", ".join(str(month_year) for 
+                                                  month_year in months_set)
+                else:
+                    months_set_unpack = str(next(iter(months_set)))
+                print(LINE_SEPARATOR)
+                bill_month = input("Introdu numarul lunii pentru care vrei sa " \
+                                   "generezi factura PDF: ")
+                if not bill_month.isdigit() or (int(bill_month), int(bill_year)) not in row:
+                    raise ValueError(
+                        f"Luna invalida! Valori posibile: {months_set_unpack}")
+                break
+            except ValueError as verr:
+                print(verr)
         return int(bill_year), int(bill_month)
     except ValueError as verr:
         print(LINE_SEPARATOR)
         print(verr)
+    except sqlite3.Error as sqerr:
+        print(f"Eroare la conectarea la baza de date: {sqerr}")
 
 def update_index_input(cursor: sqlite3.Cursor):
     """

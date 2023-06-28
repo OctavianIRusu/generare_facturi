@@ -169,14 +169,8 @@ class MenuHandler:
         from the database. Finally, it generates the PDF bill using the 
         retrieved information.
         """
-        while True:
-            try:
-                bill_year, bill_month = generate_bill_input()
-                break
-            except TypeError:
-                print("Eroare: Date invalide! Nu s-a putut genera factura!")
-                print(LINE_SEPARATOR)
         try:
+            bill_year, bill_month = generate_bill_input(self.cursor, self.username)
             bill_info = get_bill_info(
                 self.username, bill_year, bill_month, self.cursor)
             bill_serial = bill_info["bill_serial"]
@@ -187,13 +181,11 @@ class MenuHandler:
                 self.username, bill_year, bill_month, self.cursor)
             generate_pdf_bill(file_name, client_info, bill_info, bill_details)
             subprocess.Popen(["start", "", file_name], shell=True)
-        except TypeError:
-            print("Eroare: Nu au fost extrase date valide din baza de date!")
         except OSError:
             print("Eroare sistem! Nu s-a putut crea calea catre fisierul pdf!")
         except KeyboardInterrupt:
             print(f"\n{LINE_SEPARATOR}")
-            print(str("!Programul a fost întrerupt de utilizator!"))
+            print("***Programul a fost întrerupt de utilizator!***")
 
     def generate_excel_table_menu_action(self):
         """
@@ -212,7 +204,7 @@ class MenuHandler:
             print("Eroare sistem! Nu s-a putut crea calea catre fisierul excel!")
         except KeyboardInterrupt:
             print(f"\n{LINE_SEPARATOR}")
-            print(str("!Programul a fost întrerupt de utilizator!"))
+            print("***Programul a fost întrerupt de utilizator!***")
 
     def add_index_menu_action(self):
         """
@@ -355,14 +347,14 @@ class MenuHandler:
                 else:
                     raise AuthenticationError("Username sau parola gresita!")
             except AuthenticationError as aerr:
-                print(str(aerr))
+                print(aerr)
                 continue
             except sqlite3.Error:
                 print(LINE_SEPARATOR)
                 print(str("Eroare: Baza de date nu a putut fi accesata!"))
             except KeyboardInterrupt:
                 print(f"\n{LINE_SEPARATOR}")
-                print("!Programul a fost întrerupt de utilizator!")
+                print("***Programul a fost întrerupt de utilizator!***")
                 sys.exit()
 
 if __name__ == "__main__":

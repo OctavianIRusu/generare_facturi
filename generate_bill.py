@@ -271,10 +271,7 @@ def generate_barcode(
         print(f"Eroare neasteptata draw_img: {err}")
 
 def generate_pdf_bill(
-    file_name: str,
-    client_info: dict,
-    bill_info: dict,
-    bill_details: dict):
+    file_name: str, client_info: dict, bill_info: dict, bill_details: dict):
     """
     Generates a PDF bill document based on the provided information.
 
@@ -289,123 +286,116 @@ def generate_pdf_bill(
         ValueError: If the provided `x` value in the `generate_barcode` 
             function is not a positive float.
     """
-    try:
-        # Create a canvas object with the given file_name and pagesize
-        bill_canvas = Canvas(file_name, pagesize=PAGE_SIZE)
+    # Create a canvas object with the given file_name and pagesize
+    bill_canvas = Canvas(file_name, pagesize=PAGE_SIZE)
 
-        # Insert the logo and different icons in the canvas
-        draw_img(bill_canvas, ICONS_PATH / COMPANY_LOGO_FILE,
-                 0.645, 0.8, 0.159, 0.143)
-        draw_img(bill_canvas, ICONS_PATH / LOCATION_ICON_FILE,
-                 0.111, 0.862, 0.011, 0.014)
-        draw_img(bill_canvas, ICONS_PATH / PHONE_ICON_FILE,
-                 0.111, 0.826, 0.011, 0.013)
-        draw_img(bill_canvas, ICONS_PATH / EMAIL_ICON_FILE,
-                 0.111, 0.806, 0.014, 0.007)
+    # Insert the logo and different icons in the canvas
+    draw_img(bill_canvas, ICONS_PATH / COMPANY_LOGO_FILE,
+                0.645, 0.8, 0.159, 0.143)
+    draw_img(bill_canvas, ICONS_PATH / LOCATION_ICON_FILE,
+                0.111, 0.862, 0.011, 0.014)
+    draw_img(bill_canvas, ICONS_PATH / PHONE_ICON_FILE,
+                0.111, 0.826, 0.011, 0.013)
+    draw_img(bill_canvas, ICONS_PATH / EMAIL_ICON_FILE,
+                0.111, 0.806, 0.014, 0.007)
 
-        # Insert horizontal lines/rectangle to visually separate the content
-        bill_canvas.setStrokeColor(lightgrey)
-        bill_canvas.setFillColor(lightgrey)
-        bill_canvas.line(0.1 * P_WIDTH, 0.578 * P_HEIGHT, 0.9 * P_WIDTH,
-                         0.578 * P_HEIGHT)
-        bill_canvas.line(0.1 * P_WIDTH, 0.233 * P_HEIGHT, 0.9 * P_WIDTH,
-                         0.233 * P_HEIGHT)
-        bill_canvas.rect(0.1 * P_WIDTH, 0.154 * P_HEIGHT, 0.8 * P_WIDTH,
-                         0.028 * P_HEIGHT, fill=1)
+    # Insert horizontal lines/rectangle to visually separate the content
+    bill_canvas.setStrokeColor(lightgrey)
+    bill_canvas.setFillColor(lightgrey)
+    bill_canvas.line(0.1 * P_WIDTH, 0.578 * P_HEIGHT, 0.9 * P_WIDTH,
+                        0.578 * P_HEIGHT)
+    bill_canvas.line(0.1 * P_WIDTH, 0.233 * P_HEIGHT, 0.9 * P_WIDTH,
+                        0.233 * P_HEIGHT)
+    bill_canvas.rect(0.1 * P_WIDTH, 0.154 * P_HEIGHT, 0.8 * P_WIDTH,
+                        0.028 * P_HEIGHT, fill=1)
 
-        # Insert the information text about the company
-        write_text_line(bill_canvas, COMPANY_INFO["name"], "Times-Roman",
-                        25, "green", 0.143, 0.926)
-        write_text_line(bill_canvas, COMPANY_INFO["street"], "Times-Roman",
-                        12, "black", 0.143, 0.877)
-        write_text_line(bill_canvas, COMPANY_INFO["city"], "Times-Roman",
-                        12, "black", 0.143, 0.862)
-        write_text_line(bill_canvas, COMPANY_INFO["country"], "Times-Roman",
-                        12, "black", 0.143, 0.847)
-        write_text_line(bill_canvas, COMPANY_INFO["phone"], "Times-Roman",
-                        12, "black", 0.143, 0.826)
-        write_text_line(bill_canvas, COMPANY_INFO["email"], "Times-Roman",
-                        12, "black", 0.143, 0.806)
+    # Insert the information text about the company
+    write_text_line(bill_canvas, COMPANY_INFO["name"], "Times-Roman",
+                    25, "green", 0.143, 0.926)
+    write_text_line(bill_canvas, COMPANY_INFO["street"], "Times-Roman",
+                    12, "black", 0.143, 0.877)
+    write_text_line(bill_canvas, COMPANY_INFO["city"], "Times-Roman",
+                    12, "black", 0.143, 0.862)
+    write_text_line(bill_canvas, COMPANY_INFO["country"], "Times-Roman",
+                    12, "black", 0.143, 0.847)
+    write_text_line(bill_canvas, COMPANY_INFO["phone"], "Times-Roman",
+                    12, "black", 0.143, 0.826)
+    write_text_line(bill_canvas, COMPANY_INFO["email"], "Times-Roman",
+                    12, "black", 0.143, 0.806)
 
-        # Insert the information about the current bill
-        write_text_line(bill_canvas, "Factura fiscala", "Times-Bold", 13,
-                        "black", 0.625, 0.741)
-        write_text_line(bill_canvas,
-                        f"Seria {bill_info['bill_serial']} nr. {bill_info['bill_number']}",
-                        "Times-Roman", 12, "black", 0.625, 0.719)
-        write_text_line(bill_canvas, bill_info['bill_generated_date'],
-                        "Times-Roman", 12, "black", 0.746, 0.699)
-        write_text_line(bill_canvas, bill_info['bill_due_date'], "Times-Roman",
-                        12, "black", 0.758, 0.680)
-        write_text_line(bill_canvas,
-                        f"{bill_info['bill_start_date']} - {bill_info['bill_end_date']}",
-                        "Times-Roman", 12, "black", 0.625, 0.643)
-        write_text_line(bill_canvas, "Data facturii:", "Times-Bold", 12,
-                        "black", 0.625, 0.699)
-        write_text_line(bill_canvas, "Data scadenta:", "Times-Bold", 12,
-                        "black", 0.625, 0.680)
-        write_text_line(bill_canvas, "Perioada de facturare:", "Times-Bold",
-                        12, "black", 0.625, 0.662)
+    # Insert the information about the current bill
+    write_text_line(bill_canvas, "Factura fiscala", "Times-Bold", 13,
+                    "black", 0.625, 0.741)
+    write_text_line(bill_canvas,
+                    f"Seria {bill_info['bill_serial']} nr. {bill_info['bill_number']}",
+                    "Times-Roman", 12, "black", 0.625, 0.719)
+    write_text_line(bill_canvas, bill_info['bill_generated_date'],
+                    "Times-Roman", 12, "black", 0.746, 0.699)
+    write_text_line(bill_canvas, bill_info['bill_due_date'], "Times-Roman",
+                    12, "black", 0.758, 0.680)
+    write_text_line(bill_canvas,
+                    f"{bill_info['bill_start_date']} - {bill_info['bill_end_date']}",
+                    "Times-Roman", 12, "black", 0.625, 0.643)
+    write_text_line(bill_canvas, "Data facturii:", "Times-Bold", 12,
+                    "black", 0.625, 0.699)
+    write_text_line(bill_canvas, "Data scadenta:", "Times-Bold", 12,
+                    "black", 0.625, 0.680)
+    write_text_line(bill_canvas, "Perioada de facturare:", "Times-Bold",
+                    12, "black", 0.625, 0.662)
 
-        # Insert the information about the client
-        write_text_line(bill_canvas, client_info["name"].upper(), "Times-Bold",
-                        13, "black", 0.143, 0.741)
-        write_text_line(bill_canvas, client_info["street"], "Times-Roman", 12,
-                        "black", 0.143, 0.719)
-        write_text_line(bill_canvas,
-                        f"{client_info['zipcode']}, {client_info['city'].upper()}, Judetul {client_info['county']}",
-                        "Times-Roman", 12, "black", 0.143, 0.699)
-        write_text_line(bill_canvas, f"Cod client: {client_info['id']}",
-                        "Times-Roman", 12, "black", 0.143, 0.680)
+    # Insert the information about the client
+    write_text_line(bill_canvas, client_info["name"].upper(), "Times-Bold",
+                    13, "black", 0.143, 0.741)
+    write_text_line(bill_canvas, client_info["street"], "Times-Roman", 12,
+                    "black", 0.143, 0.719)
+    write_text_line(bill_canvas,
+                    f"{client_info['zipcode']}, {client_info['city'].upper()}, Judetul {client_info['county']}",
+                    "Times-Roman", 12, "black", 0.143, 0.699)
+    write_text_line(bill_canvas, f"Cod client: {client_info['id']}",
+                    "Times-Roman", 12, "black", 0.143, 0.680)
 
-        # Insert the information about the bill value
-        write_text_line(bill_canvas, "Detalii factura curenta:", "Times-Bold",
-                        24, "green", 0.111, 0.588)
-        write_text_line(bill_canvas, "Din ce este compus consumul tau?",
-                        "Times-Bold", 15, "green", 0.111, 0.500)
-        write_text_line(bill_canvas, f"{COMPANY_INFO['name'].upper()} HOME ELECTRIC",
-                        "Times-Bold", 14, "black", 0.111, 0.556)
-        write_text_line(bill_canvas, f"{bill_info['total_bill_value']:.2f}  lei",
-                        "Times-Bold", 14, "black", 0.769, 0.556)
-        write_text_line(bill_canvas, "Total", "Times-Bold",
-                        10, "black", 0.15, 0.204)
-        write_text_line(bill_canvas, f"{bill_info['total_fara_tva']:.2f}",
-                        "Times-Bold", 10, "black", 0.657, 0.204)
-        write_text_line(bill_canvas, f"{bill_info['total_tva']:.2f}",
-                        "Times-Bold", 10, "black", 0.813, 0.204)
-        write_text_line(bill_canvas, "Total de plata, TVA inclus [Lei]",
-                        "Times-Roman", 12, "black", 0.11, 0.164)
-        write_text_line(bill_canvas, f"{bill_info['total_bill_value']:.2f}",
-                        "Times-Roman", 12, "black", 0.808, 0.164)
+    # Insert the information about the bill value
+    write_text_line(bill_canvas, "Detalii factura curenta:", "Times-Bold",
+                    24, "green", 0.111, 0.588)
+    write_text_line(bill_canvas, "Din ce este compus consumul tau?",
+                    "Times-Bold", 15, "green", 0.111, 0.500)
+    write_text_line(bill_canvas, f"{COMPANY_INFO['name'].upper()} HOME ELECTRIC",
+                    "Times-Bold", 14, "black", 0.111, 0.556)
+    write_text_line(bill_canvas, f"{bill_info['total_bill_value']:.2f}  lei",
+                    "Times-Bold", 14, "black", 0.769, 0.556)
+    write_text_line(bill_canvas, "Total", "Times-Bold",
+                    10, "black", 0.15, 0.204)
+    write_text_line(bill_canvas, f"{bill_info['total_fara_tva']:.2f}",
+                    "Times-Bold", 10, "black", 0.657, 0.204)
+    write_text_line(bill_canvas, f"{bill_info['total_tva']:.2f}",
+                    "Times-Bold", 10, "black", 0.813, 0.204)
+    write_text_line(bill_canvas, "Total de plata, TVA inclus [Lei]",
+                    "Times-Roman", 12, "black", 0.11, 0.164)
+    write_text_line(bill_canvas, f"{bill_info['total_bill_value']:.2f}",
+                    "Times-Roman", 12, "black", 0.808, 0.164)
 
-        # Insert the text under the barcodes
-        write_text_line(bill_canvas, "Cod de bare pentru factura curenta",
-                        "Times-Bold", 9, "black", 0.165, 0.05)
-        write_text_line(bill_canvas, "Cod de bare pentru total de plata (sold)",
-                        "Times-Bold", 9, "black", 0.6, 0.05)
+    # Insert the text under the barcodes
+    write_text_line(bill_canvas, "Cod de bare pentru factura curenta",
+                    "Times-Bold", 9, "black", 0.165, 0.05)
+    write_text_line(bill_canvas, "Cod de bare pentru total de plata (sold)",
+                    "Times-Bold", 9, "black", 0.6, 0.05)
 
-        # Insert the table containing the details about bill consumption and price calculations
-        generate_table(bill_canvas, bill_details)
+    # Insert the table containing the details about consumption and prices
+    generate_table(bill_canvas, bill_details)
 
-        # Create strings for barcode generation, one for the current bill and one for total payment (including overdue)
-        current_bill_barcode = (
-            f"{bill_info['bill_number']}{bill_info['total_bill_value']:.2f}")
-        total_value_barcode = (
-            f"{bill_info['bill_number']}{bill_info['total_bill_value']:.2f}")
+    # Create strings for barcode generation
+    current_bill_barcode = (
+        f"{bill_info['bill_number']}{bill_info['total_bill_value']:.2f}")
+    total_value_barcode = (
+        f"{bill_info['bill_number']}{bill_info['total_bill_value']:.2f}")
 
-        # Insert the barcodes in image format in the canvas
-        generate_barcode(bill_canvas, current_bill_barcode, 6, 0.085)
-        generate_barcode(bill_canvas, total_value_barcode, 1.2, 0.085)
+    # Insert the barcodes in image format in the canvas
+    generate_barcode(bill_canvas, current_bill_barcode, 6, 0.085)
+    generate_barcode(bill_canvas, total_value_barcode, 1.2, 0.085)
 
-        # Save the modifications for the pdf export
-        bill_canvas.showPage()
-        bill_canvas.save()
-    except TypeError as terr:
-        print(f"TypeError: {terr}")
-    except ValueError as verr:
-        print(f"ValueError: {verr}")
-    except Exception as err:
-        print(f"An unexpected error occurred: {err}")
-    else:
-        print("-" * 65)
-        print("Factura a fost generata cu succes!")
+    # Save the modifications for the pdf export
+    bill_canvas.showPage()
+    bill_canvas.save()
+
+    print("-" * 65)
+    print("Factura a fost generata cu succes!")
