@@ -17,21 +17,21 @@ Dependencies:
 
 For more information, refer to the README file.
 """
+
 import sqlite3
 import subprocess
 import sys
 import time
 
-from bill_database import (LINE_SEPARATOR, add_new_user, authenticate,
+from database_interaction import (LINE_SEPARATOR, add_new_user, authenticate,
                            close_database, create_consumption_table,
                            delete_user, export_excel_table,
-                           generate_bill_input, generate_excel_input,
-                           get_bill_info, get_client_info, get_index_input,
-                           modify_user_address, open_database,
+                           generate_bill_input, get_bill_info, get_client_info,
+                           get_index_input, modify_user_address, open_database,
                            perform_database_operation, provide_index,
                            update_index)
 from exceptions import AuthenticationError
-from generate_bill import generate_pdf_bill, set_pdf_name
+from generate_pdf import generate_pdf_bill, set_pdf_name
 
 
 class MenuHandler:
@@ -170,7 +170,8 @@ class MenuHandler:
         retrieved information.
         """
         try:
-            bill_year, bill_month = generate_bill_input(self.cursor, self.username)
+            bill_year, bill_month = generate_bill_input(
+                self.cursor, self.username)
             bill_info = get_bill_info(
                 self.username, bill_year, bill_month, self.cursor)
             bill_serial = bill_info["bill_serial"]
@@ -182,7 +183,10 @@ class MenuHandler:
             generate_pdf_bill(file_name, client_info, bill_info, bill_details)
             subprocess.Popen(["start", "", file_name], shell=True)
         except OSError:
+            print(LINE_SEPARATOR)
             print("Eroare sistem! Nu s-a putut crea calea catre fisierul pdf!")
+        except TypeError:
+            print("Eroare la obtinerea datelor pentru export!")
         except KeyboardInterrupt:
             print(f"\n{LINE_SEPARATOR}")
             print("***Programul a fost întrerupt de utilizator!***")
@@ -196,10 +200,9 @@ class MenuHandler:
         table that contains the energy consumptio for the specified year.
         """
         try:
-            bill_year = generate_excel_input()
-            export_excel_table(self.cursor, self.username, bill_year)
-        except ValueError:
-            print("Eroare: Date invalide! Nu s-a putut genera exportul!")
+            export_excel_table(self.cursor, self.username)
+        except ValueError as verr:
+            print(verr)
         except OSError:
             print("Eroare sistem! Nu s-a putut crea calea catre fisierul excel!")
         except KeyboardInterrupt:
@@ -356,6 +359,7 @@ class MenuHandler:
                 print(f"\n{LINE_SEPARATOR}")
                 print("***Programul a fost întrerupt de utilizator!***")
                 sys.exit()
+
 
 if __name__ == "__main__":
     menu_handler = MenuHandler()

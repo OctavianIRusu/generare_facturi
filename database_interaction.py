@@ -37,6 +37,8 @@ Please note that this module requires the following external libraries:
         It allows you to interact with SQLite databases using SQL queries 
         and perform various operations such as creating tables, inserting data,
         querying data, and modifying data.
+
+For more information, refer to the README file.
 """
 
 import calendar
@@ -652,6 +654,10 @@ def generate_bill_input(cursor: sqlite3.Cursor, username: str) -> tuple:
     """
     Prompts the user to enter the bill year and month for generating a PDF bill.
 
+    Args:
+        cursor (sqlite3.Cursor): The database cursor object.
+        username (str): The username of the user.
+        
     Returns:
         Tuple: A tuple containing the bill year and bill month.
 
@@ -674,12 +680,12 @@ def generate_bill_input(cursor: sqlite3.Cursor, username: str) -> tuple:
         else:
             years_set_unpack = str(next(iter(years_set)))
         print(LINE_SEPARATOR)
-        print(f"Poti genera facturi pentru perioada {ro_fbm} {first_bill_year}"
-              f" - {ro_lbm} {last_bill_year}.")
+        print(f"Poti genera facturi pentru perioada: {ro_fbm} {first_bill_year}"
+              f" - {ro_lbm} {last_bill_year}")
         while True:
             try:
                 print(LINE_SEPARATOR)
-                bill_year = input("Introdu anul pentru care vrei sa generezi factura PDF: ")
+                bill_year = input("Introdu anul pentru care vrei sa generezi factura: ")
                 if not bill_year.isdigit() or int(bill_year) not in years_set:
                     raise ValueError(f"An invalid! Valori posibile: {years_set_unpack}.")
                 break
@@ -916,10 +922,14 @@ def provide_index(
         raise sqlite3.Error(f"Eroare: Consumul a fost inregistrat deja pentru "
                             f"luna {ro_bill_month} {bill_year}") from sqerr
 
-def generate_excel_input() -> int:
+def generate_excel_input(cursor: sqlite3.Cursor, username: str) -> int:
     """
     Prompts the user to enter the bill year for generating an Excel export.
 
+    Args:
+        cursor (sqlite3.Cursor): The database cursor object.
+        username (str): The username of the user.
+        
     Returns:
         int: The bill year entered by the user.
 
@@ -927,15 +937,32 @@ def generate_excel_input() -> int:
         ValueError: If the provided bill year is not integer or is out of range.
     """
     try:
-        bill_year = int(input(
-            "Introdu anul pentru care vrei sa generezi exportul excel: "))
-        current_year = date.today().year
-        if not 2020 <= int(bill_year) <= current_year:
-            raise ValueError()
+        cursor.execute("""SELECT bill_year FROM bills
+                       WHERE username = ?
+                       ORDER BY bill_id ASC""", (username,))
+        row = cursor.fetchall()
+        if len(row) > 1:
+            export_years_set = {tuplu[0] for tuplu in row}
+            export_years = ", ".join(str(year) for year in export_years_set)
+            print(f"Poti genera exportul pentru anii: {export_years}")
+            while True:
+                try:
+                    print(LINE_SEPARATOR)
+                    bill_year = int(input(
+                        "Introdu anul pentru care vrei sa generezi exportul excel: "))
+                    if bill_year not in export_years_set:
+                        raise ValueError(f"An invalid! Valori posibile: {export_years}")
+                    break
+                except ValueError as verr:
+                    print(LINE_SEPARATOR)
+                    print(verr)
+        else:
+            export_years = str(next(iter(export_years_set)))
+            print(f"Poti genera exportul xlsx pentru anul {export_years}")
+            bill_year = int(export_years)
         return int(bill_year)
-    except ValueError as verr:
-        raise ValueError(f"An invalid! Introdu o valoare intre 2020 si "
-                         f"{current_year}!") from verr
+    except sqlite3.Error as sqerr:
+        print(f"Eroare la conectarea la baza de date: {sqerr}")
 
 def set_excel_name(username: str, bill_year: int, bill_serial: str) -> str:
     """
@@ -963,43 +990,49 @@ def set_excel_name(username: str, bill_year: int, bill_serial: str) -> str:
         raise OSError(error_msg) from oserr
     return str(excel_folder / excel_name)
 
-def export_excel_table(cursor: sqlite3.Cursor, username: str, bill_year: int):
+def export_excel_table(cursor: sqlite3.Cursor, username: str):
     """
     Export the bill data for a specific year from database to an Excel file.
 
     Args:
         cursor (sqlite3.Cursor): The SQLite cursor.
         username (str): The username associated with the bills.
-        bill_year (int): The year for which the bills should be exported.
 
     Raises:
         OSError: If there is an error creating the directory for the file.
     """
     try:
-        cursor.execute("""SELECT username, bill_year, bill_month, bill_serial,
-                       bill_number, index_value, energ_cons_cant, energ_cons_pret,
-                       energ_cons_val, energ_cons_tva, acciza_cant, acciza_pret,
-                       acciza_val, acciza_tva, certif_cant, certif_pret,
-                       certif_val, certif_tva, oug_cant, oug_pret, oug_val,
-                       oug_tva, total_fara_tva, total_tva, total_bill_value
-                       FROM bills WHERE username = ? AND bill_year = ?
-                       ORDER BY bill_month ASC""", (username, bill_year))
-        rows = cursor.fetchall()
-        columns = [desc[0] for desc in cursor.description]
-        data_frame = pd.DataFrame(rows, columns=columns)
+        bill_year = generate_excel_input(cursor, username)
+        if isinstance(bill_year, int):
+            cursor.execute("""SELECT username, bill_year, bill_month, bill_serial,
+                        bill_number, index_value, energ_cons_cant, energ_cons_pret,
+                        energ_cons_val, energ_cons_tva, acciza_cant, acciza_pret,
+                        acciza_val, acciza_tva, certif_cant, certif_pret,
+                        certif_val, certif_tva, oug_cant, oug_pret, oug_val,
+                        oug_tva, total_fara_tva, total_tva, total_bill_value
+                        FROM bills WHERE username = ? AND bill_year = ?
+                        ORDER BY bill_month ASC""", (username, bill_year))
+            rows = cursor.fetchall()
+            columns = [desc[0] for desc in cursor.description]
+            data_frame = pd.DataFrame(rows, columns=columns)
 
-        bill_serial = RO_COUNTIES_ABBR[get_client_info(username, cursor)["county"]]
-        excel_name = set_excel_name(username, bill_year, bill_serial)
-        try:
-            if not os.path.exists(os.path.dirname(excel_name)):
-                os.makedirs(os.path.dirname(excel_name))
-            data_frame.to_excel(excel_name, index=False)
-            subprocess.Popen(["start", "", excel_name], shell=True)
-        except OSError as oserr:
-            error_msg = f"Eroare la crearea fisierului {str(excel_name)}!"
-            raise OSError(error_msg) from oserr
+            bill_serial = RO_COUNTIES_ABBR[get_client_info(username, cursor)["county"]]
+            excel_name = set_excel_name(username, bill_year, bill_serial)
+            try:
+                if not os.path.exists(os.path.dirname(excel_name)):
+                    os.makedirs(os.path.dirname(excel_name))
+                data_frame.to_excel(excel_name, index=False)
+                subprocess.Popen(["start", "", excel_name], shell=True)
+                print(LINE_SEPARATOR)
+                print(f"Exportul excel pentru anul {bill_year} a fost generat cu succes!")
+            except OSError as oserr:
+                error_msg = f"Eroare la crearea fisierului {str(excel_name)}!"
+                raise OSError(error_msg) from oserr
+        else:
+            raise ValueError("An invalid!")
     except sqlite3.Error as sqerr:
         print(LINE_SEPARATOR)
         print(f"Eroare la conectarea la baza de date: {sqerr}")
-    print(LINE_SEPARATOR)
-    print(f"Exportul excel pentru anul {bill_year} a fost generat cu succes!")
+    except ValueError as verr:
+        print(LINE_SEPARATOR)
+        print(verr)
