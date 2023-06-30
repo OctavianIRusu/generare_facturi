@@ -1,16 +1,15 @@
 """
 main.py
 
-This module provides classes and functions for displaying menus and handling 
-user input.
+This module provides methods in the MenuHandler Class for displaying menus and 
+handling user input.
 
 Usage:
-1. Create an instance of MenuHandler.
-2. Call the main() method to start the application.
-3. The user is prompted for login credentials.
-4. Depending on the user type, the corresponding menu is displayed.
-5. The user selects an option from the menu, and the action is executed.
-6. The process continues until the user chooses to logout.
+1. Call the main() method to start the application.
+2. The user is prompted for login credentials.
+3. Depending on the user type, the corresponding menu is displayed.
+4. The user selects an option from the menu, and the action is executed.
+5. The process continues until the user chooses to logout.
 
 Dependencies:
 - The module requires a database connection and appropriate database operations.
@@ -18,11 +17,10 @@ Dependencies:
 For more information, refer to the README file.
 """
 
+import logging
 import sqlite3
 import subprocess
 import sys
-import time
-import logging
 
 from database_interaction import (LINE_SEPARATOR, add_new_user, authenticate,
                                   close_database, create_consumption_table,
@@ -39,17 +37,14 @@ from generate_pdf import generate_pdf_bill, set_pdf_name
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
-formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+log_formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
 
 file_handler = logging.FileHandler('main.log')
 file_handler.setLevel(logging.ERROR)
-file_handler.setFormatter(formatter)
-
-stream_handler = logging.StreamHandler()
-stream_handler.setFormatter(formatter)
+file_handler.setFormatter(log_formatter)
 
 logger.addHandler(file_handler)
-logger.addHandler(stream_handler)
+
 
 class MenuHandler:
     """
@@ -74,15 +69,18 @@ class MenuHandler:
             menu_title (str): The menu type, depending on user role.
             menu_options (dict): Dictionary of menu options depending on role.
         """
+        logger.info("Displaying menu: %s", menu_title)
         print(menu_title)
         for key, value in menu_options.items():
             print(f"{key}. {str(value)}")
         print(LINE_SEPARATOR)
+        logger.debug("Menu display completed")
 
     def display_user_menu(self):
         """
         Display the user menu options.
         """
+        logger.debug("Displaying user menu")
         menu_title = "Meniu utilizator: "
         menu_options = {
             1: "Genereaza factura in format PDF",
@@ -91,11 +89,13 @@ class MenuHandler:
             4: "Delogare"
         }
         self.display_menu(menu_title, menu_options)
+        logger.debug("User menu display completed")
 
     def display_admin_menu(self):
         """
         Display the admin menu options.
         """
+        logger.debug("Displaying admin menu")
         menu_title = "Meniu administrator: "
         menu_options = {
             1: "Adauga un client",
@@ -105,6 +105,7 @@ class MenuHandler:
             5: "Delogare"
         }
         self.display_menu(menu_title, menu_options)
+        logger.debug("Admin menu display completed")
 
     def handle_menu(self, menu_actions):
         """
@@ -113,9 +114,10 @@ class MenuHandler:
         Args:
             menu_actions (dict): Dictionary mapping menu options to actions.
         """
+        logger.info("Entering handle_menu")
         while True:
-            time.sleep(0.5)
             print(LINE_SEPARATOR)
+            logger.debug("Displaying menu")
             if self.is_admin:
                 self.display_admin_menu()
             else:
@@ -126,9 +128,11 @@ class MenuHandler:
                     raise ValueError(
                         f"Introdu un numar intre 1 si {len(menu_actions)}!")
                 choice = int(choice)
+                logger.debug("Executing menu action for choice: %s", choice)
                 menu_action = menu_actions[choice]
                 menu_action()
             except ValueError as verr:
+                logger.exception("ValueError occurred: %s", verr)
                 print(LINE_SEPARATOR)
                 print(f"Eroare: {verr}")
 
@@ -148,8 +152,10 @@ class MenuHandler:
             4: self.logout_menu_action,
         }
         try:
+            logger.info("Handling user menu")
             self.handle_menu(menu_actions)
         except ValueError as verr:
+            logger.exception("ValueError occurred: %s", verr)
             print(LINE_SEPARATOR)
             print(f"Eroare: {verr}")
 
@@ -163,14 +169,16 @@ class MenuHandler:
         """
         menu_actions = {
             1: self.add_new_user_menu_action,
-            2: self.modify_user_info_menu_action,
+            2: self.modify_address_menu_action,
             3: self.modify_index_menu_action,
             4: self.delete_user_menu_action,
             5: self.logout_menu_action,
         }
         try:
+            logger.info("Handling admin menu")
             self.handle_menu(menu_actions)
         except ValueError as verr:
+            logger.exception("ValueError occurred: %s", verr)
             print(LINE_SEPARATOR)
             print(f"Eroare: {verr}")
 
@@ -187,25 +195,38 @@ class MenuHandler:
         retrieved information.
         """
         try:
+            logger.info("Prompting for bill year and month")
             bill_year, bill_month = generate_bill_input(
                 self.cursor, self.username)
+            logger.info(
+                "Received input for bill year: %s, bill month: %s",
+                bill_year, bill_month)
+            logger.info("Retrieving bill information")
             bill_info = get_bill_info(
                 self.username, bill_year, bill_month, self.cursor)
             bill_serial = bill_info["bill_serial"]
             bill_number = bill_info["bill_number"]
             file_name = set_pdf_name(bill_serial, bill_number)
+            logger.info("Generated PDF bill file name: %s", file_name)
+            logger.info("Retrieving client information")
             client_info = get_client_info(self.username, self.cursor)
+            logger.info("Retrieving bill details")
             bill_details = create_consumption_table(
                 self.username, bill_year, bill_month, self.cursor)
+            logger.info("Generating PDF bill")
             generate_pdf_bill(file_name, client_info, bill_info, bill_details)
+            logger.info("Opening PDF bill")
             subprocess.Popen(["start", "", file_name], shell=True)
         except OSError:
+            logger.exception("OSError occurred: %s", oserr)
             print(LINE_SEPARATOR)
             print("Eroare sistem! Nu s-a putut crea calea catre fisierul pdf!")
         except TypeError:
+            logger.exception("TypeError occurred: Error retrieving data")
             print(LINE_SEPARATOR)
             print("Eroare la obtinerea datelor pentru export!")
         except KeyboardInterrupt:
+            logger.info("Program interrupted by the user")
             print(f"\n{LINE_SEPARATOR}")
             print("***Programul a fost întrerupt de utilizator!***")
 
@@ -218,15 +239,22 @@ class MenuHandler:
         table that contains the energy consumptio for the specified year.
         """
         try:
+            logger.info("Generating excel export of consumption")
             export_excel_table(self.cursor, self.username)
         except ValueError as verr:
+            logger.exception("ValueError occurred: Invalid data provided")
+            print(LINE_SEPARATOR)
             print(verr)
         except OSError:
+            logger.exception("OSError occurred")
+            print(LINE_SEPARATOR)
             print("Eroare sistem! Nu s-a putut crea calea catre fisierul excel!")
         except KeyboardInterrupt:
+            logger.info("Program interrupted by the user")
             print(f"\n{LINE_SEPARATOR}")
             print("***Programul a fost întrerupt de utilizator!***")
         except TypeError:
+            logger.exception("TypeError occurred: Error retrieving data")
             print(LINE_SEPARATOR)
             print("Eroare la obtinerea datelor pentru export!")
 
@@ -239,19 +267,26 @@ class MenuHandler:
         for the corresponding year and month.
         """
         try:
+            logger.info("Prompting for bill year, bill month, and index value")
             bill_year, bill_month, index_value = get_index_input(
                 self.cursor, self.username)
-            print(bill_year, bill_month, index_value)
+            logger.info(
+                "Received input for bill year: %s, bill month: %s, index value: %s",
+                bill_year, bill_month, index_value)
+            logger.info("Adding index to the database")
             provide_index(
                 self.connection, self.cursor, self.username, bill_year,
                 bill_month, index_value)
         except ValueError as verr:
+            logger.exception("ValueError occurred: Invalid data provided")
             print(LINE_SEPARATOR)
             print(str(verr))
         except KeyboardInterrupt as kierr:
+            logger.info("Program interrupted by the user")
             print(f"\n{LINE_SEPARATOR}")
             print(str(kierr))
         except TypeError:
+            logger.exception("TypeError occurred: Error retrieving data")
             print(LINE_SEPARATOR)
             print("Eroare la obtinerea datelor!")
 
@@ -262,17 +297,21 @@ class MenuHandler:
         Closes the database, prints a logout message and exits the program.
         """
         try:
+            logger.info("Logging out")
             close_database(self.connection)
             print(LINE_SEPARATOR)
             print(f"Ai fost delogat/a! La revedere, {self.username}!")
             print(LINE_SEPARATOR)
             sys.exit()
         except KeyboardInterrupt:
+            logger.info("Program interrupted by the user")
             print(f"\n{LINE_SEPARATOR}")
             print(str("!Programul a fost întrerupt de utilizator!"))
         except sqlite3.Error as sqerr:
+            logger.exception(sqerr)
             print(sqerr)
         except TypeError:
+            logger.exception("TypeError occurred: Error retrieving data")
             print(LINE_SEPARATOR)
             print("Eroare la obtinerea datelor!")
 
@@ -285,21 +324,26 @@ class MenuHandler:
         performs the necessary steps to add a new user to the system.
         """
         try:
+            logger.info("Adding a new client")
             add_new_user(self.connection, self.cursor)
         except sqlite3.Error as sqerr:
+            logger.exception(sqerr)
             print(LINE_SEPARATOR)
             print(sqerr)
         except ValueError as verr:
+            logger.exception("ValueError occurred: Invalid data provided")
             print(LINE_SEPARATOR)
             print(verr)
         except KeyboardInterrupt:
+            logger.info("Program interrupted by the user")
             print(f"\n{LINE_SEPARATOR}")
             print(str("!Programul a fost întrerupt de utilizator!"))
         except TypeError:
+            logger.exception("TypeError occurred: Error retrieving data")
             print(LINE_SEPARATOR)
             print("Eroare la obtinerea datelor!")
 
-    def modify_user_info_menu_action(self):
+    def modify_address_menu_action(self):
         """
         Executes the action for modifying a specific field in the users table 
         of the SQLite database.
@@ -309,18 +353,22 @@ class MenuHandler:
         the specified field in the users table with the new value.
         """
         try:
+            logger.info("Modifying client address")
             modify_user_address(self.connection, self.cursor)
-        
         except ValueError:
+            logger.exception("ValueError occurred: Invalid data provided")
             print(LINE_SEPARATOR)
             print("Operatie nereusita, datele furnizate sunt invalide!")
         except LookupError as lerr:
+            logger.exception("LookupError occurred: %s", lerr)
             print(LINE_SEPARATOR)
             print(str(lerr))
         except KeyboardInterrupt:
+            logger.info("Program interrupted by the user")
             print(f"\n{LINE_SEPARATOR}")
             print(str("!Programul a fost întrerupt de utilizator!"))
         except TypeError:
+            logger.exception("TypeError occurred: Error retrieving data")
             print(LINE_SEPARATOR)
             print("Eroare la obtinerea datelor!")
 
@@ -330,17 +378,22 @@ class MenuHandler:
         user for the last month.
         """
         try:
+            logger.info("Modifying consumption index")
             update_index(self.connection, self.cursor)
         except KeyboardInterrupt as kierr:
+            logger.info("Program interrupted by the user")
             print(f"\n{LINE_SEPARATOR}")
             print(str(kierr))
         except ValueError:
+            logger.exception("ValueError occurred: Invalid data provided")
             print(LINE_SEPARATOR)
             print("Operatie nereusita, datele furnizate sunt invalide!")
         except LookupError as lerr:
+            logger.exception("LookupError occurred: %s", lerr)
             print(LINE_SEPARATOR)
             print(str(lerr))
         except TypeError:
+            logger.exception("TypeError occurred: Error retrieving data")
             print(LINE_SEPARATOR)
             print("Eroare la obtinerea datelor!")
 
@@ -349,17 +402,22 @@ class MenuHandler:
         Performs the deletion of an user based on the username.
         """
         try:
+            logger.info("Deleting user")
             delete_user(self.connection, self.cursor)
         except LookupError as lerr:
+            logger.exception("LookupError occurred: %s", lerr)
             print(LINE_SEPARATOR)
             print(str(lerr))
         except KeyboardInterrupt as kierr:
+            logger.exception("KeyboardInterrupt occurred: %s", kierr)
             print(f"\n{LINE_SEPARATOR}")
             print(str(kierr))
         except RuntimeError as rterr:
+            logger.exception("RuntimeError occurred: %s", rterr)
             print(LINE_SEPARATOR)
             print(str(rterr))
         except TypeError:
+            logger.exception("TypeError occurred: Error retrieving data")
             print(LINE_SEPARATOR)
             print("Eroare la obtinerea datelor!")
 
@@ -371,30 +429,41 @@ class MenuHandler:
         print("Bine ai venit! Pentru a continua este necesara autentificarea!")
         while True:
             try:
+                logger.info("Prompting for username and password")
+
                 print(LINE_SEPARATOR)
                 self.username = input("Introduceti numele de utilizator: ")
                 password = input("Introduceti parola: ")
-                time.sleep(0.5)
+
+                logger.debug("Authenticating user")
+
                 authenticated, self.is_admin = authenticate(
                     self.username, password, self.cursor)
                 print(LINE_SEPARATOR)
+                logger.debug("Authentication result: authenticated=%s, is_admin=%s",
+                             authenticated, self.is_admin)
                 if authenticated:
                     print(f"Salut, {self.username}! Ai fost autentificat/a ca "
                           f"{'administrator' if self.is_admin else 'user'}.")
+                    logger.info("User '%s' successfully authenticated as '%s'",
+                                self.username, "administrator" if self.is_admin else "user")
                     if self.is_admin:
                         self.handle_admin_menu()
                     else:
                         self.handle_user_menu()
                 else:
+                    logger.warning("Authentication failed for user '%s'", self.username)
                     raise AuthenticationError("Username sau parola gresita!")
             except AuthenticationError as aerr:
+                logger.exception(aerr)
                 print(aerr)
                 continue
             except sqlite3.Error as sqerr:
+                logger.exception(sqerr)
                 print(LINE_SEPARATOR)
                 print("Eroare la citirea/scrierea bazei de date!")
-                print(sqerr)
             except KeyboardInterrupt:
+                logger.info("Program interrupted by the user")
                 print(f"\n{LINE_SEPARATOR}")
                 print("***Programul a fost întrerupt de utilizator!***")
                 sys.exit()

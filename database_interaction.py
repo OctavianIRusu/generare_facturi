@@ -909,7 +909,7 @@ def get_index_input(cursor: sqlite3.Cursor, username: str) -> tuple:
                 print(f"Ultima luna pentru care s-a inregistrat consumul: "
                     f"{ro_last_bill_month} {last_bill_year}")
                 print(f"Ultimul index inregistrat: {last_bill_index} kWh")
-            elif 1 <= last_bill_month <= 11:
+            else:
                 current_bill_month = last_bill_month + 1
                 current_bill_year = last_bill_year
                 print(f"Ultima luna pentru care s-a inregistrat consumul: "
