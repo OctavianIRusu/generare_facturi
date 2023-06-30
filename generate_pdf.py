@@ -30,7 +30,7 @@ from reportlab.lib.units import cm
 from reportlab.pdfgen.canvas import Canvas
 from reportlab.platypus import Table, TableStyle
 
-from database_interaction import LINE_SEPARATOR
+from db_interaction import LINE_SEPARATOR
 
 # Set the root folder path and icons folder path
 MAIN_FOLDER_ROOT = Path(__file__).parent

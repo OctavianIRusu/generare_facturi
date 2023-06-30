@@ -21,15 +21,14 @@ import logging
 import sqlite3
 import subprocess
 import sys
+from pathlib import Path
 
-from database_interaction import (LINE_SEPARATOR, add_new_user, authenticate,
-                                  close_database, create_consumption_table,
-                                  delete_user, export_excel_table,
-                                  generate_bill_input, get_bill_info,
-                                  get_client_info, get_index_input,
-                                  modify_user_address, open_database,
-                                  perform_database_operation, provide_index,
-                                  update_index)
+from db_interaction import (LINE_SEPARATOR, add_new_user, authenticate,
+                                  create_consumption_table, delete_user,
+                                  export_excel_table, generate_bill_input,
+                                  get_bill_info, get_client_info,
+                                  get_index_input, modify_user_address,
+                                  provide_index, update_index)
 from exceptions import AuthenticationError
 from generate_pdf import generate_pdf_bill, set_pdf_name
 
@@ -39,12 +38,15 @@ logger.setLevel(logging.DEBUG)
 
 log_formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
 
-file_handler = logging.FileHandler('main.log')
+file_handler = logging.FileHandler('logs/main.log')
 file_handler.setLevel(logging.ERROR)
 file_handler.setFormatter(log_formatter)
 
 logger.addHandler(file_handler)
 
+# Set the root folder path and database path
+MAIN_FOLDER_ROOT = Path(__file__).parent
+DB_FILE = MAIN_FOLDER_ROOT / "bill_database.sqlite"
 
 class MenuHandler:
     """
@@ -56,8 +58,8 @@ class MenuHandler:
     """
 
     def __init__(self):
-        self.connection = open_database()
-        self.cursor = perform_database_operation(self.connection)
+        self.connection = sqlite3.connect(DB_FILE)
+        self.cursor = self.connection.cursor()
         self.username = ""
         self.is_admin = False
 

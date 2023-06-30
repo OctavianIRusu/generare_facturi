@@ -1,15 +1,12 @@
 """
 This module contains functions for creating entries in SQLite database, which
-contains an user table and a bills table. All the functions interact both with
-user and database, in order to input values and extract informations for pdf or
-excel exports, and to monitor the energy consumption per month for every user.
+contains an user table and a bills table. All the functions allow the 
+interaction between user and database, in order to input values and extract 
+informations for pdf or excel exports, and to monitor the energy consumption
+per month for each user.
 
 The module provides the following functions:
 
-    open_database, perform_database_operation, close_database: These functions
-        handle the database interaction by opening, creating the cursor and
-        closing the connection once the necessary database operations have
-        been performed.
     authenticate: Authenticates a user based on the provided username and 
         password by checking against a user table in a SQLite database.
     add_new_user, delete_user, modify_user_info: Functions that need admin
@@ -40,24 +37,36 @@ Please note that this module requires the following external libraries:
 
 For more information, refer to the README file.
 """
-
 import calendar
+import csv
+import logging
 import os
 import sqlite3
 import subprocess
 from datetime import date
 from pathlib import Path
-import csv
 
 import pandas as pd
 from dateutil.relativedelta import relativedelta
 
+# setting up logging configurations and handlers
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
+
+log_formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+
+file_handler = logging.FileHandler('logs/db_interaction.log')
+file_handler.setLevel(logging.ERROR)
+file_handler.setFormatter(log_formatter)
+
+logger.addHandler(file_handler)
+
+# Set the visual separator for console printing
 LINE_SEPARATOR = "-" * 80
 
-# Set the root folder path and database path
+# Set the root folder path and Romanian localities path
 MAIN_FOLDER_ROOT = Path(__file__).parent
-DB_FILE = MAIN_FOLDER_ROOT / "bill_database.sqlite"
-LOCALITY_LIST_FILE = MAIN_FOLDER_ROOT / "lista_localitati.csv"
+LOCALITY_LIST_FILE = MAIN_FOLDER_ROOT / "resources" / "lista_localitati.csv"
 
 # Dictionary that maps Romanian counties to their corresponding abbreviations
 RO_COUNTIES_ABBR = {
@@ -94,52 +103,9 @@ CONSUMPTION_TABLE_CONTENT = {
     "Valoare TVA (19%)": []
 }
 
-def open_database() -> sqlite3.Connection:
-    """
-    Opens a connection to the SQLite database.
-
-    Returns:
-    connection (sqlite3.Connection): A connection object.
-
-    Raises:
-    sqlite3.Error: If there is an error while establishing database connection.
-    """
-    connection = sqlite3.connect(DB_FILE)
-    return connection
-
-def perform_database_operation(connection: sqlite3.Connection) -> sqlite3.Cursor:
-    """
-    Creates a cursor object from the given database connection.
-
-    Args:
-    connection (sqlite3.Connection): A connection object.
-    
-    Returns:
-    cursor (sqlite3.Cursor): A cursor object for the given connection.
-    """
-    
-    cursor = connection.cursor()
-    return cursor
-
-def close_database(connection: sqlite3.Connection):
-    """
-    Closes the connection to the SQLite database.
-
-    Args:
-    connection (sqlite3.Connection): A connection object.
-
-    Raises:
-    sqlite3.Error: If there is an error while closing the database connection.
-    """
-
-    try:
-        connection.close()
-    except sqlite3.Error as sqerr:
-        raise sqlite3.Error(f"Eroare la inchiderea bazei de date!") from sqerr
-
 def authenticate(
-    username: str, password: str,
-    cursor: sqlite3.Cursor) -> tuple[bool, bool]:
+        username: str, password: str,
+        cursor: sqlite3.Cursor) -> tuple[bool, bool]:
     """
     Authenticates a user based on the provided username and password by 
     checking against a user table in a SQLite database.
@@ -150,82 +116,156 @@ def authenticate(
     cursor (sqlite3.Cursor): A cursor object for executing SQL statements.
 
     Returns:
-        tuple: A tuple containing two values: authentication and admin status.
+        tuple: A tuple containing two boolean values: authentication status
+            and admin status.
 
     Raises:
         sqlite3.Error: If there is an error while executing the SQL statement.
     """
-    cursor.execute(
-        """SELECT role FROM users
-        WHERE username = ? AND password = ?""", (username, password))
-    result = cursor.fetchone()
-    if result:
-        role = result[0]
-        if role == 'admin':
-            return True, True
-        return True, False
-    return False, False
+    try:
+        logger.info("Checking user credentials in the database")
+        cursor.execute("""SELECT role FROM users
+                    WHERE username = ? AND password = ?""",
+                       (username, password))
+        result = cursor.fetchone()
+        if result:
+            role = result[0]
+            if role == 'admin':
+                logger.info("User '%s' successfully authenticated as 'admin'",
+                            username)
+                return True, True
+            logger.info("User '%s' successfully authenticated", username)
+            return True, False
+        logger.warning("Authentication failed for user '%s'", username)
+        return False, False
+    except sqlite3.Error as sqerr:
+        logger.exception(
+            "An error occurred while executing the SQL statement")
+        raise sqerr
 
-def check_location_exists(location: str, file_path: str):
+def validate_new_user_county(file_path: str) -> str:
     """
-    Checks if a county exists in the specified CSV file.
+    Checks if a location exists in the specified CSV file.
 
     Args:
-        location (str): The county/locality name to search for.
         file_path (str): The path to the CSV file.
 
     Returns:
-        bool: True if the location exists, False otherwise.
+        str: The county name.
 
     Raises:
         FileNotFoundError: If the specified file does not exist.
+        ValueError: If the searched value does not exist.
     """
-    with open(file_path, 'r', encoding='utf-8') as file:
-        reader = csv.reader(file)
-        for row in reader:
-            if location.capitalize() in row:
-                return True
-    return False
+    while True:
+        county = input("Introdu judetul: ")
+        logger.info("Checking if county '%s' exists in file '%s'",
+                    county, file_path)
+        with open(file_path, 'r', encoding='utf-8') as file:
+            reader = csv.reader(file)
+            for row in reader:
+                if county.lower() in row[1].lower():
+                    logger.info("Location '%s' found in file '%s'",
+                                county, file_path)
+                    return county
+        logger.info("Location '%s' not found in file '%s'", county, file_path)
+        print("Judetul specificat nu exista!")
 
-def check_locality_in_county(locality: str, county: str, file_path: str):
+def validate_new_user_locality(county: str, file_path: str) -> str:
     """
     Checks if a locality belongs to a specified county.
 
     Args:
-        locality (str): The locality name to be checked if belongs to county.
         county (str): The county specified.
         file_path (str): The path to the CSV file.
 
     Returns:
-        bool: True if the location belongs to the county, False otherwise.
+        str: The locality name
 
     Raises:
         FileNotFoundError: If the specified file does not exist.
+        ValueError: If the searched value does not exist.
     """
-    with open(file_path, 'r', encoding='utf-8') as file:
-        reader = csv.reader(file)
-        for row in reader:
-            if row[0].lower() == locality.lower() and row[1].lower() == county.lower():
-                return True
-    return False
+    while True:
+        locality = input("Introdu localitatea: ")
+        logger.info(
+            "Checking if locality '%s' exists in county '%s'", locality, county)
+        with open(file_path, 'r', encoding='utf-8') as file:
+            reader = csv.reader(file)
+            for row in reader:
+                if row[0].lower() == locality.lower() and row[1].lower() == county.lower():
+                    logger.info("Locality '%s' belongs to county '%s' in file '%s'",
+                                locality, county, file_path)
+                    return locality
+        logger.info("Locality '%s' does not belong to county '%s' in file '%s'",
+                    locality, county, file_path)
+        print(f"Localitatea specificata nu apartine de judetul {county}!")
 
-def get_zipcode(locality, county, file_path):
+def get_new_user_zipcode(locality, county, file_path) -> str:
     """
-    Retrieves the ZIP code associated with a given locality from a CSV file.
+    Returns the ZIP code for a given locality in a given county from a CSV file.
 
     Args:
         locality (str): The name of the locality.
+        county (str): The name of the county.
         file_path (str): The path to the CSV file.
 
     Returns:
         str: The ZIP code for the specified locality, or None if not found.
+
+    Raises:
+        FileNotFoundError: If the specified file does not exist.
+        ValueError: If the searched value does not exist.    
     """
-    with open(file_path, 'r', encoding='utf-8') as file:
-        reader = csv.reader(file)
-        for row in reader:
-            if row[0] == locality.capitalize() and row[1] == county.capitalize():
-                return row[3]
-    return None
+    while True:
+        logger.info("Retrieving ZIP code for locality '%s'", locality)
+        with open(file_path, 'r', encoding='utf-8') as file:
+            reader = csv.reader(file)
+            for row in reader:
+                if row[0] == locality.capitalize() and row[1] == county.capitalize():
+                    zipcode = row[3]
+                    logger.info("ZIP code '%s' retrieved for locality '%s'",
+                                zipcode, locality)
+                    return zipcode
+        logger.info("No ZIP code found for locality '%s'", locality)
+        print("Codul postal nu a putut fi atribuit!")
+
+def validate_new_user_name():
+    """
+    Prompt the user to enter their first name and last name, and return the 
+    formatted full name.
+
+    Returns:
+        str: The formatted full name entered by the user.
+    """
+    while True:
+        name = input("Introdu prenume si nume: ").strip()
+        logger.info("Prompted user to enter first name and last name: %s", name)
+        name_parts = name.split()
+        if 2 <= len(name_parts) <= 3:
+            formatted_name = ' '.join([part.capitalize()
+                                      for part in name_parts])
+            logger.info("Formatted full name: %s", formatted_name)
+            return formatted_name
+        logger.info("Invalid name entered: %s", name)
+        print(LINE_SEPARATOR)
+        print("Numele trebuie sa contina unul sau doua prenume si un nume!")
+
+def validate_new_user_role():
+    """
+    Prompts the user to choose a user role (user/admin) and validates the input.
+
+    Returns:
+        str: The chosen user role.
+    """
+    while True:
+        role = input("Alege tip user (user/admin): ")
+        logger.info("Prompted user to choose a user role: %s", role)
+        if role.lower() in ["user", "admin"]:
+            logger.info("Valid user role chosen: %s", role)
+            return role
+        logger.info("Invalid user role entered: %s", role)
+        print("Rolul ales poate fi doar 'user' sau 'admin!'")
 
 def add_new_user(connection: sqlite3.Connection, cursor: sqlite3.Cursor):
     """
@@ -238,66 +278,36 @@ def add_new_user(connection: sqlite3.Connection, cursor: sqlite3.Cursor):
     Raises:
         sqlite3.Error: If an error occurs when SQL statement is executed.
     """
-    while True:
-        try:
-            name = input("Introdu prenume si nume: ")
-            name_parts = name.strip().split()
-            formatted_name = ' '.join([part.capitalize() for part in name_parts])
-            if len(name_parts) < 2:
-                raise ValueError("Numele trebuie sa contina cel putin un prenume si un nume!")
-            break
-        except ValueError as verr:
-            print(LINE_SEPARATOR)
-            print(verr)
-            print(LINE_SEPARATOR)
-    while True:
-        try:
-            county = input("Introdu judetul: ")
-            if not check_location_exists(county, LOCALITY_LIST_FILE):
-                raise ValueError("Judetul furnizat nu exista!")
-            break
-        except ValueError as verr:
-            print(LINE_SEPARATOR)
-            print(verr)
-            print(LINE_SEPARATOR)
-    while True:
-        try:
-            city = input("Introdu localitatea: ")
-            if not check_location_exists(city, LOCALITY_LIST_FILE):
-                raise ValueError("Localitatea furnizata nu exista!")
-            if not check_locality_in_county(city, county, LOCALITY_LIST_FILE):
-                raise ValueError(f"Aceasta localitate nu apartine de {county}.")
-            break
-        except ValueError as verr:
-            print(LINE_SEPARATOR)
-            print(verr)
-            print(LINE_SEPARATOR)
-
-    street = input("Introdu adresa (strada, nr, bloc, apartament): ")
-    zipcode = get_zipcode(city, county, LOCALITY_LIST_FILE)
-    username = "".join([s.lower() for s in name.split()])
-    password = username
-    while True:
-        try:
-            role = input("Alege tip user (user/admin): ")
-            if role.lower() not in ["user", "admin"]:
-                raise ValueError("Rolul ales poate fi doar 'user' sau 'admin'!")
-            break
-        except ValueError as verr:
-            print(LINE_SEPARATOR)
-            print(verr)
     try:
-        cursor.execute('''INSERT INTO users (
-            name, street, zipcode, city, county, username, password, role)
+        logger.info("Starting to add a new user")
+        formatted_name = validate_new_user_name()
+        county = validate_new_user_county(LOCALITY_LIST_FILE)
+        locality = validate_new_user_locality(county, LOCALITY_LIST_FILE)
+        street = input("Introdu adresa (strada, nr, bloc, apartament): ")
+        zipcode = get_new_user_zipcode(locality, county, LOCALITY_LIST_FILE)
+        username = "".join([s.lower() for s in formatted_name.split()])
+        password = username
+        role = validate_new_user_role()
+
+        logger.info("Executing SQL statement to add new user to the database")
+        cursor.execute(
+            '''INSERT INTO users
+            (name, street, zipcode, city, county, username, password, role)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)''',
-            (formatted_name, street, zipcode, city, county, username, password, role))
+            (formatted_name, street, zipcode, locality, county, username,
+             password, role))
         connection.commit()
         print(LINE_SEPARATOR)
         print("Noul client a fost adaugat cu succes!")
-        print(f"Date de autentificare: username: {username}, parola: {password}.")
+        print(f"Date autentificare: username: {username}, parola: {password}.")
+        logger.info("New user added successfully")
     except sqlite3.Error as sqerr:
+        logger.exception(
+            "Error occurred while accessing the database: %s", sqerr)
         print(f"Eroare la accesarea bazei de date: {sqerr}")
     except FileNotFoundError as fnferr:
+        logger.exception(
+            "Error occurred while accessing the locality list: %s", fnferr)
         print(f"Lista cu localitati nu a putut fi accesata: {fnferr}")
 
 def search_user(cursor: sqlite3.Cursor):
@@ -306,10 +316,10 @@ def search_user(cursor: sqlite3.Cursor):
 
     Args:
         cursor (sqlite3.Cursor): The cursor object for executing SQL queries.
-    
+
     Returns:
         username (str): The username of the existing client.
-        
+
     Raises:
         LookupError: If no client with the given username is found in the table.
     """
@@ -356,7 +366,8 @@ def modify_user_address(connection: sqlite3.Connection, cursor: sqlite3.Cursor):
                 if not check_location_exists(city, LOCALITY_LIST_FILE):
                     raise ValueError("Localitatea furnizata nu exista!")
                 if not check_locality_in_county(city, county, LOCALITY_LIST_FILE):
-                    raise ValueError(f"Aceasta localitate nu apartine de {county}.")
+                    raise ValueError(
+                        f"Aceasta localitate nu apartine de {county}.")
                 break
             except ValueError as verr:
                 print(LINE_SEPARATOR)
@@ -373,7 +384,7 @@ def modify_user_address(connection: sqlite3.Connection, cursor: sqlite3.Cursor):
         print(LINE_SEPARATOR)
         print("Informatiile au fost actualizate cu succes!")
     except LookupError as lerr:
-            print(lerr)
+        print(lerr)
     except sqlite3.Error as sqerr:
         print(f"Eroare la accesarea bazei de date: {sqerr}")
 
@@ -385,7 +396,7 @@ def delete_user(connection: sqlite3.Connection, cursor: sqlite3.Cursor):
         connection (sqlite3.Connection): 
             A connection object to the SQLite database.
         cursor (sqlite3.Cursor): A cursor object for executing SQL statements.
-    
+
     Raises:
         LookupError: If there is no user found in the database with the
             specified username
@@ -397,13 +408,14 @@ def delete_user(connection: sqlite3.Connection, cursor: sqlite3.Cursor):
         try:
             print(LINE_SEPARATOR)
             username = search_user(cursor)
-            confirmation = input(f"Esti sigur ca doresti sa stergi user-ul {username}? y/n ")
+            confirmation = input(
+                f"Esti sigur ca doresti sa stergi user-ul {username}? y/n ")
             if confirmation.lower() == "n":
                 continue
             elif confirmation.lower() == "y":
                 cursor.execute('''DELETE FROM users
                             WHERE username = ?''',
-                            (username,))
+                               (username,))
                 print(LINE_SEPARATOR)
                 print("Clientul a fost sters cu succes!")
                 connection.commit()
@@ -412,7 +424,8 @@ def delete_user(connection: sqlite3.Connection, cursor: sqlite3.Cursor):
             print(LINE_SEPARATOR)
             print("""Alegere invalida! Alege 'y' sau 'n'.""")
         except sqlite3.Error as sqerr:
-            raise RuntimeError("An error occurred while accessing the database.") from sqerr
+            raise RuntimeError(
+                "An error occurred while accessing the database.") from sqerr
 
 def get_client_info(username: str, cursor: sqlite3.Cursor) -> dict:
     """
@@ -442,13 +455,14 @@ def get_client_info(username: str, cursor: sqlite3.Cursor) -> dict:
             user_dict = dict(zip(columns, row))
             return user_dict
         except TypeError:
-            print(f'Eroare: Nu exista niciun client cu username-ul "{username}"!')
+            print(
+                f'Eroare: Nu exista niciun client cu username-ul "{username}"!')
     except sqlite3.Error as sqerr:
         print(f"SQLite error occurred while opening the database: {sqerr}")
 
 def get_bill_info(
-    username: str, bill_year: int, bill_month: int,
-    cursor: sqlite3.Cursor) -> dict:
+        username: str, bill_year: int, bill_month: int,
+        cursor: sqlite3.Cursor) -> dict:
     """
     Get bill information from the database for a specific month.
 
@@ -476,13 +490,14 @@ def get_bill_info(
             return bill_info_dict
         except TypeError:
             month_name = get_romanian_month_name(bill_month)
-            print(f"Nu exista nicio factura pentru luna {month_name} {bill_year}!")
+            print(
+                f"Nu exista nicio factura pentru luna {month_name} {bill_year}!")
     except sqlite3.Error as sqerr:
         print(f"Eroare la conectarea la baza de date: {sqerr}")
 
 def create_consumption_table(
         username: str,
-        bill_year: int, 
+        bill_year: int,
         bill_month: int,
         cursor: sqlite3.Cursor) -> dict:
     """
@@ -558,8 +573,8 @@ def get_romanian_month_name(bill_month: int) -> str:
             "Invalid month. Month must be between 1 and 12.") from ierr
 
 def calculate_monthly_consumption(
-    cursor: sqlite3.Cursor, username: str, bill_year: int, bill_month: int,
-    index_value: float) -> float:
+        cursor: sqlite3.Cursor, username: str, bill_year: int, bill_month: int,
+        index_value: float) -> float:
     """
     Calculates the monthly consumption based on the provided index value.
 
@@ -699,7 +714,7 @@ def calculate_prices(cursor: sqlite3.Cursor, username: str, bill_year: int,
         total_fara_tva = energ_cons_val + acciza_val + certif_val + oug_val
         total_tva = energ_cons_tva + acciza_tva + certif_tva + oug_tva
         total_bill_value = total_fara_tva + total_tva
-        return (energ_cons_val, energ_cons_tva, acciza_val, acciza_tva, 
+        return (energ_cons_val, energ_cons_tva, acciza_val, acciza_tva,
                 certif_val, certif_tva, oug_val, oug_tva, total_fara_tva,
                 total_tva, total_bill_value)
     except ValueError as verr:
@@ -714,7 +729,7 @@ def generate_bill_input(cursor: sqlite3.Cursor, username: str) -> tuple:
     Args:
         cursor (sqlite3.Cursor): The database cursor object.
         username (str): The username of the user.
-        
+
     Returns:
         Tuple: A tuple containing the bill year and bill month.
 
@@ -727,13 +742,17 @@ def generate_bill_input(cursor: sqlite3.Cursor, username: str) -> tuple:
                        WHERE username = ?
                        ORDER BY bill_id ASC""", (username,))
         row = cursor.fetchall()
+        if not row:
+            raise ValueError(
+                "Nu există facturi înregistrate în baza de date!")
         first_bill_month, first_bill_year = row[0]
         last_bill_month, last_bill_year = row[-1]
         ro_fbm = get_romanian_month_name(first_bill_month)
         ro_lbm = get_romanian_month_name(last_bill_month)
         years_set = {tuplu[1] for tuplu in row}
         if len(years_set) > 1:
-            years_set_unpack = ", ".join(str(bill_year) for bill_year in years_set)
+            years_set_unpack = ", ".join(str(bill_year)
+                                         for bill_year in years_set)
         else:
             years_set_unpack = str(next(iter(years_set)))
         print(LINE_SEPARATOR)
@@ -742,22 +761,25 @@ def generate_bill_input(cursor: sqlite3.Cursor, username: str) -> tuple:
         while True:
             try:
                 print(LINE_SEPARATOR)
-                bill_year = input("Introdu anul pentru care vrei sa generezi factura: ")
+                bill_year = input(
+                    "Introdu anul pentru care vrei sa generezi factura: ")
                 if not bill_year.isdigit() or int(bill_year) not in years_set:
-                    raise ValueError(f"An invalid! Valori posibile: {years_set_unpack}.")
+                    raise ValueError(
+                        f"An invalid! Valori posibile: {years_set_unpack}.")
                 break
             except ValueError as verr:
                 print(verr)
         while True:
             try:
-                months_set = {month for month, year in row if year == int(bill_year)}
+                months_set = {month for month,
+                              year in row if year == int(bill_year)}
                 if len(months_set) > 1:
-                    months_set_unpack = ", ".join(str(month_year) for 
+                    months_set_unpack = ", ".join(str(month_year) for
                                                   month_year in months_set)
                 else:
                     months_set_unpack = str(next(iter(months_set)))
                 print(LINE_SEPARATOR)
-                bill_month = input("Introdu numarul lunii pentru care vrei sa " \
+                bill_month = input("Introdu numarul lunii pentru care vrei sa "
                                    "generezi factura PDF: ")
                 if not bill_month.isdigit() or (int(bill_month), int(bill_year)) not in row:
                     raise ValueError(
@@ -813,13 +835,15 @@ def update_index_input(cursor: sqlite3.Cursor):
                 if consumption < 0:
                     raise ValueError("Consumul nu poate fi negativ!")
                 print(f"Conform acestui index, consumul pentru luna "
-                    f"{ro_month} {index_year} va fi de "
-                    f"{consumption} kWh.")
-                
+                      f"{ro_month} {index_year} va fi de "
+                      f"{consumption} kWh.")
+
                 while True:
-                    confirmation = input("Doresti sa continui cu acest index? (y/n) ")
+                    confirmation = input(
+                        "Doresti sa continui cu acest index? (y/n) ")
                     if confirmation.lower() == "y":
-                        print(f"Indexul a fost modificat de la {old_index} la {new_index}.")
+                        print(
+                            f"Indexul a fost modificat de la {old_index} la {new_index}.")
                         break
                     elif confirmation.lower() == "n":
                         break
@@ -836,7 +860,8 @@ def update_index_input(cursor: sqlite3.Cursor):
     except LookupError as lerr:
         print(str(lerr))
     except sqlite3.Error as sqerr:
-        raise RuntimeError("An error occurred while accessing the database.") from sqerr
+        raise RuntimeError(
+            "An error occurred while accessing the database.") from sqerr
 
 def update_index(connection: sqlite3.Connection, cursor: sqlite3.Cursor):
     """
@@ -851,7 +876,8 @@ def update_index(connection: sqlite3.Connection, cursor: sqlite3.Cursor):
         sqlite3.Error: If there is a communication issue with the database.
     """
     try:
-        username, index_year, index_month, new_index = update_index_input(cursor)
+        username, index_year, index_month, new_index = update_index_input(
+            cursor)
         energ_cons_cant, acciza_cant, certif_cant, oug_cant = (
             calculate_cons(cursor, username, index_year, index_month, new_index))
         energie_consumata, acciza_necomerciala, certificate_verzi, oug_27 = (
@@ -907,13 +933,13 @@ def get_index_input(cursor: sqlite3.Cursor, username: str) -> tuple:
                 current_bill_month = 1
                 current_bill_year = last_bill_year + 1
                 print(f"Ultima luna pentru care s-a inregistrat consumul: "
-                    f"{ro_last_bill_month} {last_bill_year}")
+                      f"{ro_last_bill_month} {last_bill_year}")
                 print(f"Ultimul index inregistrat: {last_bill_index} kWh")
             else:
                 current_bill_month = last_bill_month + 1
                 current_bill_year = last_bill_year
                 print(f"Ultima luna pentru care s-a inregistrat consumul: "
-                    f"{ro_last_bill_month} {last_bill_year}")
+                      f"{ro_last_bill_month} {last_bill_year}")
                 print(f"Ultimul index inregistrat: {last_bill_index} kWh")
         else:
             current_bill_month = 1
@@ -926,7 +952,8 @@ def get_index_input(cursor: sqlite3.Cursor, username: str) -> tuple:
                 index_value = input(f"Introdu indexul pentru luna "
                                     f"{ro_current_bill_month} {current_bill_year}: ")
                 if not index_value.isdigit():
-                    raise ValueError("Indexul trebuie sa fie o valoare numerica!")
+                    raise ValueError(
+                        "Indexul trebuie sa fie o valoare numerica!")
                 index_value = float(index_value)
                 consumption = calculate_monthly_consumption(
                     cursor, username, current_bill_year, current_bill_month, index_value)
@@ -936,7 +963,8 @@ def get_index_input(cursor: sqlite3.Cursor, username: str) -> tuple:
                       f"{ro_current_bill_month} {current_bill_year} va fi de "
                       f"{consumption} kWh.")
                 while True:
-                    confirmation = input("Doresti sa continui cu acest index? (y/n) ")
+                    confirmation = input(
+                        "Doresti sa continui cu acest index? (y/n) ")
                     if confirmation.lower() == "y":
                         break
                     elif confirmation.lower() == "n":
@@ -956,8 +984,8 @@ def get_index_input(cursor: sqlite3.Cursor, username: str) -> tuple:
         print(f"Eroare la conectarea la baza de date: {sqerr}")
 
 def provide_index(
-    connection: sqlite3.Connection, cursor: sqlite3.Cursor, username: str,
-    bill_year: int, bill_month: int, index_value: float, ):
+        connection: sqlite3.Connection, cursor: sqlite3.Cursor, username: str,
+        bill_year: int, bill_month: int, index_value: float, ):
     """
     Insert a new index value and calculate the corresponding bill details into
     the database.
@@ -981,7 +1009,8 @@ def provide_index(
         bill_no_date = bill_generated_date.strftime('%d%m%y')
         bill_no_id = str(get_client_info(username, cursor)['id']).zfill(6)
         bill_no = f"{bill_no_date}{bill_no_id}"
-        bill_serial = RO_COUNTIES_ABBR[get_client_info(username, cursor)["county"]]
+        bill_serial = RO_COUNTIES_ABBR[get_client_info(username, cursor)[
+            "county"]]
         energ_cons_cant, acciza_cant, certif_cant, oug_cant = (
             calculate_cons(cursor, username, bill_year, bill_month, index_value))
         (energ_cons_val, energ_cons_tva, acciza_val, acciza_tva, certif_val,
@@ -1001,13 +1030,13 @@ def provide_index(
             total_fara_tva, total_tva, total_bill_value)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
             ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-            (bill_user_id, bill_user_username, bill_year, bill_month,
-             bill_generated_date, bill_serial, bill_no, bill_due_date,
-             bill_start_date, bill_end_date, index_value, energ_cons_cant,
-             energie_consumata, energ_cons_val, energ_cons_tva, acciza_cant,
-             acciza_necomerciala, acciza_val, acciza_tva, certif_cant,
-             certificate_verzi, certif_val, certif_tva, oug_cant, oug_27,
-             oug_val, oug_tva, total_fara_tva, total_tva, total_bill_value))
+                       (bill_user_id, bill_user_username, bill_year, bill_month,
+                        bill_generated_date, bill_serial, bill_no, bill_due_date,
+                        bill_start_date, bill_end_date, index_value, energ_cons_cant,
+                        energie_consumata, energ_cons_val, energ_cons_tva, acciza_cant,
+                        acciza_necomerciala, acciza_val, acciza_tva, certif_cant,
+                        certificate_verzi, certif_val, certif_tva, oug_cant, oug_27,
+                        oug_val, oug_tva, total_fara_tva, total_tva, total_bill_value))
         connection.commit()
         print(LINE_SEPARATOR)
         print(f"Consumul pentru luna {ro_bill_month} {bill_year} "
@@ -1026,7 +1055,7 @@ def generate_excel_input(cursor: sqlite3.Cursor, username: str) -> int:
     Args:
         cursor (sqlite3.Cursor): The database cursor object.
         username (str): The username of the user.
-        
+
     Returns:
         int: The bill year entered by the user.
 
@@ -1038,6 +1067,9 @@ def generate_excel_input(cursor: sqlite3.Cursor, username: str) -> int:
                        WHERE username = ?
                        ORDER BY bill_id ASC""", (username,))
         row = cursor.fetchall()
+        if not row:
+            raise ValueError(
+                "Nu există facturi înregistrate în baza de date!")
         if len(row) > 1:
             export_years_set = {tuplu[0] for tuplu in row}
             export_years = ", ".join(str(year) for year in export_years_set)
@@ -1048,7 +1080,8 @@ def generate_excel_input(cursor: sqlite3.Cursor, username: str) -> int:
                     bill_year = int(input(
                         "Introdu anul pentru care vrei sa generezi exportul excel: "))
                     if bill_year not in export_years_set:
-                        raise ValueError(f"An invalid! Valori posibile: {export_years}")
+                        raise ValueError(
+                            f"An invalid! Valori posibile: {export_years}")
                     break
                 except ValueError as verr:
                     print(LINE_SEPARATOR)
@@ -1113,7 +1146,8 @@ def export_excel_table(cursor: sqlite3.Cursor, username: str):
             columns = [desc[0] for desc in cursor.description]
             data_frame = pd.DataFrame(rows, columns=columns)
 
-            bill_serial = RO_COUNTIES_ABBR[get_client_info(username, cursor)["county"]]
+            bill_serial = RO_COUNTIES_ABBR[get_client_info(username, cursor)[
+                "county"]]
             excel_name = set_excel_name(username, bill_year, bill_serial)
             try:
                 if not os.path.exists(os.path.dirname(excel_name)):
@@ -1121,7 +1155,8 @@ def export_excel_table(cursor: sqlite3.Cursor, username: str):
                 data_frame.to_excel(excel_name, index=False)
                 subprocess.Popen(["start", "", excel_name], shell=True)
                 print(LINE_SEPARATOR)
-                print(f"Exportul excel pentru anul {bill_year} a fost generat cu succes!")
+                print(
+                    f"Exportul excel pentru anul {bill_year} a fost generat cu succes!")
             except OSError as oserr:
                 error_msg = f"Eroare la crearea fisierului {str(excel_name)}!"
                 raise OSError(error_msg) from oserr
