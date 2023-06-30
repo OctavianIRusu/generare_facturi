@@ -99,7 +99,7 @@ class MenuHandler:
         menu_title = "Meniu administrator: "
         menu_options = {
             1: "Adauga un client",
-            2: "Modifica informatiile unui client existent",
+            2: "Modifica adresa unui client existent",
             3: "Modifica un index existent",
             4: "Sterge un client",
             5: "Delogare"
@@ -241,6 +241,7 @@ class MenuHandler:
         try:
             bill_year, bill_month, index_value = get_index_input(
                 self.cursor, self.username)
+            print(bill_year, bill_month, index_value)
             provide_index(
                 self.connection, self.cursor, self.username, bill_year,
                 bill_month, index_value)
@@ -353,7 +354,7 @@ class MenuHandler:
             print(LINE_SEPARATOR)
             print(str(lerr))
         except KeyboardInterrupt as kierr:
-            print(LINE_SEPARATOR)
+            print(f"\n{LINE_SEPARATOR}")
             print(str(kierr))
         except RuntimeError as rterr:
             print(LINE_SEPARATOR)
@@ -389,9 +390,10 @@ class MenuHandler:
             except AuthenticationError as aerr:
                 print(aerr)
                 continue
-            except sqlite3.Error:
+            except sqlite3.Error as sqerr:
                 print(LINE_SEPARATOR)
-                print(str("Eroare: Baza de date nu a putut fi accesata!"))
+                print("Eroare la citirea/scrierea bazei de date!")
+                print(sqerr)
             except KeyboardInterrupt:
                 print(f"\n{LINE_SEPARATOR}")
                 print("***Programul a fost întrerupt de utilizator!***")

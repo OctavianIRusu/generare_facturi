@@ -900,19 +900,25 @@ def get_index_input(cursor: sqlite3.Cursor, username: str) -> tuple:
                        WHERE username = ?
                        ORDER BY bill_id DESC""", (username,))
         row = cursor.fetchone()
-        last_bill_month, last_bill_year, last_bill_index = row
-        if last_bill_month == 12:
-            current_bill_month = 1
-            current_bill_year = last_bill_year + 1
-        elif 1 <= last_bill_month <= 11:
-            current_bill_month = last_bill_month + 1
-            current_bill_year = last_bill_year
+        if row:
+            last_bill_month, last_bill_year, last_bill_index = row
+            ro_last_bill_month = get_romanian_month_name(last_bill_month)
+            if last_bill_month == 12:
+                current_bill_month = 1
+                current_bill_year = last_bill_year + 1
+                print(f"Ultima luna pentru care s-a inregistrat consumul: "
+                    f"{ro_last_bill_month} {last_bill_year}")
+                print(f"Ultimul index inregistrat: {last_bill_index} kWh")
+            elif 1 <= last_bill_month <= 11:
+                current_bill_month = last_bill_month + 1
+                current_bill_year = last_bill_year
+                print(f"Ultima luna pentru care s-a inregistrat consumul: "
+                    f"{ro_last_bill_month} {last_bill_year}")
+                print(f"Ultimul index inregistrat: {last_bill_index} kWh")
         else:
-            raise ValueError("Luna invalida! Nu s-a putut inregistra indexul!")
-        ro_last_bill_month = get_romanian_month_name(last_bill_month)
-        print(f"Ultima luna pentru care s-a inregistrat consumul: "
-              f"{ro_last_bill_month} {last_bill_year}")
-        print(f"Ultimul index inregistrat: {last_bill_index} kWh")
+            current_bill_month = 1
+            current_bill_year = 2020
+            print("Nu exista inregistrari anterioare ale consumului!")
         ro_current_bill_month = get_romanian_month_name(current_bill_month)
         while True:
             try:
@@ -932,7 +938,6 @@ def get_index_input(cursor: sqlite3.Cursor, username: str) -> tuple:
                 while True:
                     confirmation = input("Doresti sa continui cu acest index? (y/n) ")
                     if confirmation.lower() == "y":
-                        print("Consumul a fost inregistrat cu succes!")
                         break
                     elif confirmation.lower() == "n":
                         break
@@ -946,9 +951,6 @@ def get_index_input(cursor: sqlite3.Cursor, username: str) -> tuple:
             except ValueError as verr:
                 print(verr)
         return current_bill_year, current_bill_month, index_value
-    except ValueError as verr:
-        print(LINE_SEPARATOR)
-        print(verr)
     except sqlite3.Error as sqerr:
         print(LINE_SEPARATOR)
         print(f"Eroare la conectarea la baza de date: {sqerr}")
@@ -989,7 +991,6 @@ def provide_index(
         energie_consumata, acciza_necomerciala, certificate_verzi, oug_27 = (
             PRICE_PER_UNIT.values())
         ro_bill_month = get_romanian_month_name(bill_month)
-
         cursor.execute("""INSERT INTO bills (
             user_id, username, bill_year, bill_month, bill_generated_date,
             bill_serial, bill_number, bill_due_date, bill_start_date,
@@ -1012,10 +1013,11 @@ def provide_index(
         print(f"Consumul pentru luna {ro_bill_month} {bill_year} "
               f"a fost inregistrat cu succes!")
     except ValueError as verr:
-        raise ValueError(f"Eroare: {verr}") from verr
+        print(verr)
+        raise ValueError from verr
     except sqlite3.Error as sqerr:
-        raise sqlite3.Error(f"Eroare: Consumul a fost inregistrat deja pentru "
-                            f"luna {ro_bill_month} {bill_year}") from sqerr
+        print(sqerr)
+        raise sqlite3.Error from sqerr
 
 def generate_excel_input(cursor: sqlite3.Cursor, username: str) -> int:
     """
