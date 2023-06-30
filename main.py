@@ -22,17 +22,34 @@ import sqlite3
 import subprocess
 import sys
 import time
+import logging
 
 from database_interaction import (LINE_SEPARATOR, add_new_user, authenticate,
-                           close_database, create_consumption_table,
-                           delete_user, export_excel_table,
-                           generate_bill_input, get_bill_info, get_client_info,
-                           get_index_input, modify_user_address, open_database,
-                           perform_database_operation, provide_index,
-                           update_index)
+                                  close_database, create_consumption_table,
+                                  delete_user, export_excel_table,
+                                  generate_bill_input, get_bill_info,
+                                  get_client_info, get_index_input,
+                                  modify_user_address, open_database,
+                                  perform_database_operation, provide_index,
+                                  update_index)
 from exceptions import AuthenticationError
 from generate_pdf import generate_pdf_bill, set_pdf_name
 
+# setting up logging configurations and handlers
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
+
+formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+
+file_handler = logging.FileHandler('main.log')
+file_handler.setLevel(logging.ERROR)
+file_handler.setFormatter(formatter)
+
+stream_handler = logging.StreamHandler()
+stream_handler.setFormatter(formatter)
+
+logger.addHandler(file_handler)
+logger.addHandler(stream_handler)
 
 class MenuHandler:
     """
@@ -186,6 +203,7 @@ class MenuHandler:
             print(LINE_SEPARATOR)
             print("Eroare sistem! Nu s-a putut crea calea catre fisierul pdf!")
         except TypeError:
+            print(LINE_SEPARATOR)
             print("Eroare la obtinerea datelor pentru export!")
         except KeyboardInterrupt:
             print(f"\n{LINE_SEPARATOR}")
@@ -208,6 +226,9 @@ class MenuHandler:
         except KeyboardInterrupt:
             print(f"\n{LINE_SEPARATOR}")
             print("***Programul a fost întrerupt de utilizator!***")
+        except TypeError:
+            print(LINE_SEPARATOR)
+            print("Eroare la obtinerea datelor pentru export!")
 
     def add_index_menu_action(self):
         """
@@ -229,9 +250,9 @@ class MenuHandler:
         except KeyboardInterrupt as kierr:
             print(f"\n{LINE_SEPARATOR}")
             print(str(kierr))
-        except TypeError as terr:
+        except TypeError:
             print(LINE_SEPARATOR)
-            print(str(terr))
+            print("Eroare la obtinerea datelor!")
 
     def logout_menu_action(self):
         """
@@ -250,6 +271,9 @@ class MenuHandler:
             print(str("!Programul a fost întrerupt de utilizator!"))
         except sqlite3.Error as sqerr:
             print(sqerr)
+        except TypeError:
+            print(LINE_SEPARATOR)
+            print("Eroare la obtinerea datelor!")
 
     def add_new_user_menu_action(self):
         """
@@ -270,6 +294,9 @@ class MenuHandler:
         except KeyboardInterrupt:
             print(f"\n{LINE_SEPARATOR}")
             print(str("!Programul a fost întrerupt de utilizator!"))
+        except TypeError:
+            print(LINE_SEPARATOR)
+            print("Eroare la obtinerea datelor!")
 
     def modify_user_info_menu_action(self):
         """
@@ -282,6 +309,7 @@ class MenuHandler:
         """
         try:
             modify_user_address(self.connection, self.cursor)
+        
         except ValueError:
             print(LINE_SEPARATOR)
             print("Operatie nereusita, datele furnizate sunt invalide!")
@@ -291,6 +319,9 @@ class MenuHandler:
         except KeyboardInterrupt:
             print(f"\n{LINE_SEPARATOR}")
             print(str("!Programul a fost întrerupt de utilizator!"))
+        except TypeError:
+            print(LINE_SEPARATOR)
+            print("Eroare la obtinerea datelor!")
 
     def modify_index_menu_action(self):
         """
@@ -308,6 +339,9 @@ class MenuHandler:
         except LookupError as lerr:
             print(LINE_SEPARATOR)
             print(str(lerr))
+        except TypeError:
+            print(LINE_SEPARATOR)
+            print("Eroare la obtinerea datelor!")
 
     def delete_user_menu_action(self):
         """
@@ -324,6 +358,9 @@ class MenuHandler:
         except RuntimeError as rterr:
             print(LINE_SEPARATOR)
             print(str(rterr))
+        except TypeError:
+            print(LINE_SEPARATOR)
+            print("Eroare la obtinerea datelor!")
 
     def main(self):
         """
