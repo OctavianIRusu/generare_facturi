@@ -218,14 +218,14 @@ class MenuHandler:
             generate_pdf_bill(file_name, client_info, bill_info, bill_details)
             logger.info("Opening PDF bill")
             subprocess.Popen(["start", "", file_name], shell=True)
-        except OSError:
+        except OSError as oserr:
             logger.exception("OSError occurred: %s", oserr)
             print(LINE_SEPARATOR)
             print("Eroare sistem! Nu s-a putut crea calea catre fisierul pdf!")
-        except TypeError:
-            logger.exception("TypeError occurred: Error retrieving data")
+        except TypeError as terr:
+            logger.exception("TypeError occurred: %s", terr)
             print(LINE_SEPARATOR)
-            print("Eroare la obtinerea datelor pentru export!")
+            print("Eroare la obtinerea datelor pentru export: terr")
         except KeyboardInterrupt:
             logger.info("Program interrupted by the user")
             print(f"\n{LINE_SEPARATOR}")
@@ -311,7 +311,7 @@ class MenuHandler:
         """
         try:
             logger.info("Logging out")
-            close_database(self.connection)
+            self.connection.close()
             print(LINE_SEPARATOR)
             print(f"Ai fost delogat/a! La revedere, {self.username}!")
             print(LINE_SEPARATOR)
@@ -467,13 +467,15 @@ class MenuHandler:
                     print(f"Salut, {self.username}! Ai fost autentificat/a ca "
                           f"{'administrator' if self.is_admin else 'user'}.")
                     logger.info("User '%s' successfully authenticated as '%s'",
-                                self.username, "administrator" if self.is_admin else "user")
+                                self.username, "administrator" if
+                                self.is_admin else "user")
                     if self.is_admin:
                         self.handle_admin_menu()
                     else:
                         self.handle_user_menu()
                 else:
-                    logger.warning("Authentication failed for user '%s'", self.username)
+                    logger.warning("Authentication failed for user '%s'",
+                                   self.username)
                     raise AuthenticationError("Username sau parola gresita!")
             except AuthenticationError as aerr:
                 logger.exception(aerr)
