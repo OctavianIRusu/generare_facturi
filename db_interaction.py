@@ -324,17 +324,18 @@ def search_user(cursor: sqlite3.Cursor):
         LookupError: If no client with the given username is found in the table.
     """
     while True:
-        try:
-            username = str(input("Introdu username-ul clientului: ")).lower()
-            cursor.execute('''SELECT COUNT(*) FROM users
-                        WHERE username = ?''', (username,))
-            result = cursor.fetchone()
-            if result[0] == 0:
-                raise LookupError(f'Nu exista niciun client "{username}"!')
+        logger.info("Searching for a user.")
+        username = str(input("Introdu username-ul clientului: ")).lower()
+        logger.info('Username entered: %s', username)
+        cursor.execute('''SELECT COUNT(*) FROM users
+                    WHERE username = ?''', (username,))
+        result = cursor.fetchone()
+        if result[0] == 0:
+            logger.error("No client with this username: %s", username)
+            print(f'Nu exista niciun client "{username}"!')
+        else:
+            logger.info("User found.")
             break
-        except LookupError as lerr:
-            print(LINE_SEPARATOR)
-            print(lerr)
     return username
 
 def modify_user_address(connection: sqlite3.Connection, cursor: sqlite3.Cursor):
@@ -349,43 +350,25 @@ def modify_user_address(connection: sqlite3.Connection, cursor: sqlite3.Cursor):
         sqlite3.Error: If there is an error while executing the SQL statement.
     """
     try:
+        logger.info("Starting user address modification.")
         username = search_user(cursor)
-        while True:
-            try:
-                county = input("Introdu judetul: ")
-                if not check_location_exists(county, LOCALITY_LIST_FILE):
-                    raise ValueError("Judetul furnizat nu exista!")
-                break
-            except ValueError as verr:
-                print(LINE_SEPARATOR)
-                print(verr)
-                print(LINE_SEPARATOR)
-        while True:
-            try:
-                city = input("Introdu localitatea: ")
-                if not check_location_exists(city, LOCALITY_LIST_FILE):
-                    raise ValueError("Localitatea furnizata nu exista!")
-                if not check_locality_in_county(city, county, LOCALITY_LIST_FILE):
-                    raise ValueError(
-                        f"Aceasta localitate nu apartine de {county}.")
-                break
-            except ValueError as verr:
-                print(LINE_SEPARATOR)
-                print(verr)
-                print(LINE_SEPARATOR)
-
+        county = validate_new_user_county(LOCALITY_LIST_FILE)
+        locality = validate_new_user_locality(county, LOCALITY_LIST_FILE)
         street = input("Introdu adresa (strada, nr, bloc, apartament): ")
-        zipcode = get_zipcode(city, county, LOCALITY_LIST_FILE)
+        zipcode = get_new_user_zipcode(locality, county, LOCALITY_LIST_FILE)
         cursor.execute('''UPDATE users SET street = ?, zipcode = ?,
                        city = ?, county = ?
                        WHERE username = ?''',
-                       (street, zipcode, city, county, username))
+                       (street, zipcode, locality, county, username))
         connection.commit()
+        logger.info("User address updated successfully.")
         print(LINE_SEPARATOR)
         print("Informatiile au fost actualizate cu succes!")
     except LookupError as lerr:
+        logger.exception("LookupError occurred: %s", str(lerr))
         print(lerr)
     except sqlite3.Error as sqerr:
+        logger.exception("sqlite3.Error occurred: %s", str(sqerr))
         print(f"Eroare la accesarea bazei de date: {sqerr}")
 
 def delete_user(connection: sqlite3.Connection, cursor: sqlite3.Cursor):
@@ -405,17 +388,20 @@ def delete_user(connection: sqlite3.Connection, cursor: sqlite3.Cursor):
             statement.
     """
     while True:
-        try:
-            print(LINE_SEPARATOR)
-            username = search_user(cursor)
+        print(LINE_SEPARATOR)
+        username = search_user(cursor)
+        logger.info("User selected for deletion: %s", username)
+        while True:
             confirmation = input(
                 f"Esti sigur ca doresti sa stergi user-ul {username}? y/n ")
+            logger.info("Confirmation input: %s", confirmation)
             if confirmation.lower() == "n":
-                continue
+                logger.info("Deletion canceled.")
+                break
             elif confirmation.lower() == "y":
                 cursor.execute('''DELETE FROM users
                             WHERE username = ?''',
-                               (username,))
+                                (username,))
                 print(LINE_SEPARATOR)
                 print("Clientul a fost sters cu succes!")
                 connection.commit()
@@ -423,9 +409,9 @@ def delete_user(connection: sqlite3.Connection, cursor: sqlite3.Cursor):
                 break
             print(LINE_SEPARATOR)
             print("""Alegere invalida! Alege 'y' sau 'n'.""")
-        except sqlite3.Error as sqerr:
-            raise RuntimeError(
-                "An error occurred while accessing the database.") from sqerr
+        if confirmation.lower() == "y":
+            break
+    logger.info("Deletion process completed.")
 
 def get_client_info(username: str, cursor: sqlite3.Cursor) -> dict:
     """
@@ -436,29 +422,27 @@ def get_client_info(username: str, cursor: sqlite3.Cursor) -> dict:
         cursor (sqlite3.Cursor): A cursor object for executing SQL statements.
 
     Returns:
-        dict: A dictionary containing the client information if the username 
-            is found in the database. The keys of the dictionary represent 
-            the column names from the 'users' table, and the values represent 
-            the corresponding data for the client. 
+        dict: A dictionary containing the client information.
 
     Raises:
-        sqlite3.Error: If there is an error during the execution of the SQL 
-            statement.
-        TypeError: If data is missing in database or if there is no valid 
-            data extracted from database.
+        sqlite3.Error: If there is an error during the execution of the SQL.
+        TypeError: If there is no valid data extracted from database.
     """
     try:
+        logger.info("Getting client information for username: %s", username)
         cursor.execute("SELECT * FROM users WHERE username = ?", (username,))
         row = cursor.fetchone()
         try:
             columns = [desc[0] for desc in cursor.description]
             user_dict = dict(zip(columns, row))
+            logger.info("Client information retrieved for username: %s", username)
             return user_dict
-        except TypeError:
-            print(
-                f'Eroare: Nu exista niciun client cu username-ul "{username}"!')
+        except TypeError as terr:
+            logger.exception("No client found with username: %s", username)
+            raise terr
     except sqlite3.Error as sqerr:
-        print(f"SQLite error occurred while opening the database: {sqerr}")
+        logger.exception("SQLite error occurred while retrieving client information: %s", str(sqerr))
+        raise sqerr
 
 def get_bill_info(
         username: str, bill_year: int, bill_month: int,
@@ -479,6 +463,8 @@ def get_bill_info(
         sqlite3.Error: If an error occurs during the execution of the SQL code.
         TypeError: If there is no valid data extracted from database.
     """
+    logger.info("Getting bill information for username: %s, year: %s, month: %s",
+                username, bill_year, bill_month)
     try:
         cursor.execute("""SELECT * FROM bills
                        WHERE username = ? AND bill_year = ? AND bill_month = ?""",
@@ -487,18 +473,20 @@ def get_bill_info(
         try:
             columns = [desc[0] for desc in cursor.description]
             bill_info_dict = dict(zip(columns, row))
+            logger.info("Bill information retrieved for username: %s, year: %s, month: %s",
+                        username, bill_year, bill_month)
             return bill_info_dict
-        except TypeError:
+        except TypeError as terr:
             month_name = get_romanian_month_name(bill_month)
-            print(
-                f"Nu exista nicio factura pentru luna {month_name} {bill_year}!")
+            logger.error("No bill found for username: %s, year: %s, month: %s",
+                         username, bill_year, bill_month)
+            raise TypeError(f"Nu exista nicio factura pentru luna {month_name} {bill_year}!") from terr
     except sqlite3.Error as sqerr:
-        print(f"Eroare la conectarea la baza de date: {sqerr}")
+        logger.error("SQLite error occurred while retrieving bill information: %s", str(sqerr))
+        raise sqerr
 
 def create_consumption_table(
-        username: str,
-        bill_year: int,
-        bill_month: int,
+        username: str, bill_year: int, bill_month: int,
         cursor: sqlite3.Cursor) -> dict:
     """
     Creates a consumption table for a specific username and bill.
@@ -511,14 +499,13 @@ def create_consumption_table(
 
     Returns:
         Dict: A dictionary representing the consumption table.
-            The keys of the dictionary represent the table column names,
-            and the values are lists containing the corresponding data.
 
     Raises:
-        sqlite3.Error: If there is an error during the execution of the SQL 
-            statement.
+        sqlite3.Error: If there is an error during the execution of the SQL.
     """
     try:
+        logger.info("Creating consumption table for username: %s, year: %s, month: %s",
+                    username, bill_year, bill_month)
         cons_dict = get_bill_info(username, bill_year, bill_month, cursor)
         CONSUMPTION_TABLE_CONTENT["Cantitate"] = [
             f"{cons_dict['energ_cons_cant']:.2f}",
@@ -544,11 +531,17 @@ def create_consumption_table(
             f"{cons_dict['certif_tva']:.2f}",
             f"{cons_dict['oug_tva']:.2f}",
         ]
+        logger.info("Consumption table created for username: %s, year: %s, month: %s",
+                    username, bill_year, bill_month)
         return CONSUMPTION_TABLE_CONTENT
     except sqlite3.Error as sqerr:
         print(f"Eroare la conectarea la baza de date: {sqerr}")
+        logger.error("SQLite error occurred while creating consumption table: %s", str(sqerr))
+        raise sqerr
     except (ValueError, KeyError, TypeError) as err:
         print(f"Eroare la obtinerea detaliilor de consum (tabel): {err}")
+        logger.error("Error occurred while obtaining consumption details (table): %s", str(err))
+        raise err
 
 def get_romanian_month_name(bill_month: int) -> str:
     """
@@ -563,14 +556,17 @@ def get_romanian_month_name(bill_month: int) -> str:
     Raises:
         ValueError: If the provided month is out of range (not between 1 and 12).
     """
+    logger.info("Retrieving Romanian month name for month: %s", bill_month)
     romanian_month_names = [
         "Ianuarie", "Februarie", "Martie", "Aprilie", "Mai", "Iunie", "Iulie",
         "August", "Septembrie", "Octombrie", "Noiembrie", "Decembrie"]
     try:
-        return romanian_month_names[bill_month - 1]
+        romanian_month_name = romanian_month_names[bill_month - 1]
+        logger.info("Romanian month name retrieved: %s", romanian_month_name)
+        return romanian_month_name
     except IndexError as ierr:
-        raise IndexError(
-            "Invalid month. Month must be between 1 and 12.") from ierr
+        logger.exception("Invalid month. Month must be between 1 and 12.")
+        raise IndexError("Invalid month. Month must be between 1 and 12.") from ierr
 
 def calculate_monthly_consumption(
         cursor: sqlite3.Cursor, username: str, bill_year: int, bill_month: int,
@@ -592,32 +588,31 @@ def calculate_monthly_consumption(
         sqlite3.Error: If there is an error executing the SQL query.
         ValueError: If the provided bill month or year is out of range.
     """
+    logger.info("Calculating monthly consumption for username: %s, year: %s, month: %s, index value: %s",
+                username, bill_year, bill_month, index_value)
+    sql_statement = """SELECT index_value FROM bills
+                    WHERE username = ? AND bill_year = ? AND bill_month = ?
+                    ORDER BY bill_year DESC, bill_month DESC LIMIT 1"""
     try:
         if bill_month == 1:
-            cursor.execute("""SELECT index_value
-                    FROM bills
-                    WHERE username = ? AND bill_year = ? AND bill_month = ?
-                    ORDER BY bill_year DESC, bill_month DESC
-                    LIMIT 1""",
-                           (username, bill_year - 1, 12))
+            cursor.execute(sql_statement, (username, bill_year - 1, 12))
         else:
-            cursor.execute("""SELECT index_value
-                    FROM bills
-                    WHERE username = ? AND bill_year = ? AND bill_month = ?
-                    ORDER BY bill_year DESC, bill_month DESC
-                    LIMIT 1""",
-                           (username, bill_year, bill_month - 1))
+            cursor.execute(sql_statement, (username, bill_year, bill_month - 1))
         previous_entry = cursor.fetchone()
         if previous_entry:
             previous_index = previous_entry[0]
             monthly_consumption = index_value - previous_index
         else:
             monthly_consumption = index_value
+        logger.info("Monthly consumption calculated: %s", monthly_consumption)
         return monthly_consumption
     except sqlite3.Error as sqerr:
         print(f"SQLite error occurred while opening the database: {sqerr}")
+        logger.error("SQLite error occurred while opening the database: %s", sqerr)
+        raise sqerr
     except ValueError as verr:
-        raise ValueError(f"Invalid bill month or year: {str(verr)}") from verr
+        logger.error("Invalid bill month or year: %s", str(verr))
+        raise ValueError(f"An sau luna invalida: {verr}") from verr
 
 def calculate_bill_period(bill_year: int, bill_month: int) -> date:
     """
@@ -635,6 +630,7 @@ def calculate_bill_period(bill_year: int, bill_month: int) -> date:
     Raises:
         ValueError: If the provided bill month or year is out of range.
     """
+    logger.info("Calculating bill period for year: %s, month: %s", bill_year, bill_month)
     try:
         bill_start_date = date(bill_year, bill_month, 1)
         last_day = calendar.monthrange(year=bill_year, month=bill_month)[1]
@@ -645,9 +641,12 @@ def calculate_bill_period(bill_year: int, bill_month: int) -> date:
             bill_year += 1
         bill_generated_date = date(bill_year, next_month, 1)
         bill_due_date = bill_generated_date + relativedelta(months=1)
+        logger.info("Bill period calculated: Start Date: %s, End Date: %s, Generated Date: %s, Due Date: %s",
+                    bill_start_date, bill_end_date, bill_generated_date, bill_due_date)
         return bill_start_date, bill_end_date, bill_generated_date, bill_due_date
     except ValueError as verr:
-        raise ValueError(f"Invalid bill month or year: {str(verr)}") from verr
+        logger.error("Invalid bill month or year: %s", str(verr))
+        raise ValueError(f"An sau luna invalida: {verr}") from verr
 
 def calculate_cons(cursor: sqlite3.Cursor, username: str, bill_year: int,
                    bill_month: int, index_value: float) -> dict:
@@ -662,11 +661,13 @@ def calculate_cons(cursor: sqlite3.Cursor, username: str, bill_year: int,
         index_value (float): The index value for consumption calculation.
 
     Returns:
-        dict: A dictionary containing the calculated consumption values.
+        tuple: A tuple containing the calculated consumption values.
 
     Raises:
         ValueError: If the provided username, bill month, bill year is invalid.
     """
+    logger.info("Calculating consumption values for username: %s, bill_year: %s, bill_month: %s",
+                username, bill_year, bill_month)
     try:
         energ_cons_cant = calculate_monthly_consumption(
             cursor, username, bill_year, bill_month, index_value)
@@ -675,9 +676,12 @@ def calculate_cons(cursor: sqlite3.Cursor, username: str, bill_year: int,
         certif_cant = acciza_cant
         oug_cant = - calculate_monthly_consumption(
             cursor, username, bill_year, bill_month, index_value)
+        logger.info("Consumption values calculated: Energy: %s, Acciza: %s, Certif: %s, OUG: %s",
+                    energ_cons_cant, acciza_cant, certif_cant, oug_cant)
         return energ_cons_cant, acciza_cant, certif_cant, oug_cant
     except ValueError as verr:
-        raise ValueError(f"Invalid data: {verr}") from verr
+        logger.error("Invalid data: %s", verr)
+        raise ValueError(f"Date invalide la calculul consumului: {verr}") from verr
 
 def calculate_prices(cursor: sqlite3.Cursor, username: str, bill_year: int,
                      bill_month: int, index_value: float) -> tuple:
@@ -698,6 +702,8 @@ def calculate_prices(cursor: sqlite3.Cursor, username: str, bill_year: int,
         ValueError: If username, bill month, or bill year is invalid.
         TypeError: If the index_value is not a valid float value.
     """
+    logger.info("Calculating prices for username: %s, bill_year: %s, bill_month: %s",
+                username, bill_year, bill_month)
     try:
         energ_cons_cant, acciza_cant, certif_cant, oug_cant = (
             calculate_cons(cursor, username, bill_year, bill_month, index_value))
@@ -714,12 +720,22 @@ def calculate_prices(cursor: sqlite3.Cursor, username: str, bill_year: int,
         total_fara_tva = energ_cons_val + acciza_val + certif_val + oug_val
         total_tva = energ_cons_tva + acciza_tva + certif_tva + oug_tva
         total_bill_value = total_fara_tva + total_tva
+
+        logger.info("Prices calculated: Energy Consumption Value: %s, Energy Consumption VAT: %s, "
+                    "Acciza Value: %s, Acciza VAT: %s, Certif Value: %s, Certif VAT: %s, "
+                    "OUG Value: %s, OUG VAT: %s, Total (Excluding VAT): %s, Total VAT: %s, "
+                    "Total Bill Value: %s",
+                    energ_cons_val, energ_cons_tva, acciza_val, acciza_tva, certif_val, certif_tva,
+                    oug_val, oug_tva, total_fara_tva, total_tva, total_bill_value)
+
         return (energ_cons_val, energ_cons_tva, acciza_val, acciza_tva,
                 certif_val, certif_tva, oug_val, oug_tva, total_fara_tva,
                 total_tva, total_bill_value)
     except ValueError as verr:
+        logger.error("Invalid data: %s", verr)
         raise ValueError(f"Invalid data: {str(verr)}") from verr
     except TypeError as terr:
+        logger.error("Invalid index_value: %s", terr)
         raise TypeError(f"Invalid index_value: {str(terr)}") from terr
 
 def generate_bill_input(cursor: sqlite3.Cursor, username: str) -> tuple:
@@ -737,6 +753,7 @@ def generate_bill_input(cursor: sqlite3.Cursor, username: str) -> tuple:
         ValueError: If the provided bill year or bill month is not a valid 
             integer or out of range.
     """
+    logger.info("Generating bill input for username: %s", username)
     try:
         cursor.execute("""SELECT bill_month, bill_year FROM bills
                        WHERE username = ?
@@ -751,31 +768,30 @@ def generate_bill_input(cursor: sqlite3.Cursor, username: str) -> tuple:
         ro_lbm = get_romanian_month_name(last_bill_month)
         years_set = {tuplu[1] for tuplu in row}
         if len(years_set) > 1:
-            years_set_unpack = ", ".join(str(bill_year)
-                                         for bill_year in years_set)
+            years_set_unpack = ", ".join(str(bill_year) for bill_year in years_set)
         else:
             years_set_unpack = str(next(iter(years_set)))
         print(LINE_SEPARATOR)
         print(f"Poti genera facturi pentru perioada: {ro_fbm} {first_bill_year}"
               f" - {ro_lbm} {last_bill_year}")
+        logger.info("Available bill period: %s %s - %s %s",
+                    ro_fbm, first_bill_year, ro_lbm, last_bill_year)
         while True:
             try:
                 print(LINE_SEPARATOR)
                 bill_year = input(
                     "Introdu anul pentru care vrei sa generezi factura: ")
                 if not bill_year.isdigit() or int(bill_year) not in years_set:
-                    raise ValueError(
-                        f"An invalid! Valori posibile: {years_set_unpack}.")
+                    raise ValueError(f"An invalid! Valori posibile: {years_set_unpack}.")
                 break
             except ValueError as verr:
+                logger.exception("Invalid bill year: %s", verr)
                 print(verr)
         while True:
             try:
-                months_set = {month for month,
-                              year in row if year == int(bill_year)}
+                months_set = {month for month, year in row if year == int(bill_year)}
                 if len(months_set) > 1:
-                    months_set_unpack = ", ".join(str(month_year) for
-                                                  month_year in months_set)
+                    months_set_unpack = ", ".join(str(month_year) for month_year in months_set)
                 else:
                     months_set_unpack = str(next(iter(months_set)))
                 print(LINE_SEPARATOR)
@@ -786,6 +802,7 @@ def generate_bill_input(cursor: sqlite3.Cursor, username: str) -> tuple:
                         f"Luna invalida! Valori posibile: {months_set_unpack}")
                 break
             except ValueError as verr:
+                logger.exception("Invalid bill month: %s", verr)
                 print(verr)
         return int(bill_year), int(bill_month)
     except ValueError as verr:
@@ -807,8 +824,9 @@ def update_index_input(cursor: sqlite3.Cursor):
         LookupError: If there is no user with the specified username.
         ValueError: If the index is not numeric or returns negative consumption.
         KeyboardInterrupt: If the user does not confirm the new index value.
-        sqlite3.Error: If there is a communication issue with the database.
+        sqlite3.Error: If there is an error when executing the SQL statement.
     """
+    logger.info("Updating index input")
     try:
         username = search_user(cursor)
         cursor.execute("""SELECT index_value, bill_month, bill_year
@@ -816,10 +834,13 @@ def update_index_input(cursor: sqlite3.Cursor):
                        ORDER BY bill_id DESC LIMIT 1""", (username,))
         result = cursor.fetchone()
         if result is None:
+            logger.exception("No client with this username '%s'", username)
             raise LookupError(
                 f"Nu s-a gasit niciun client cu username-ul '{username}'!")
         old_index, index_month, index_year = result
         ro_month = get_romanian_month_name(index_month)
+        logger.info("Old index value: %s, Index month: %s, Index year: %s",
+                    old_index, index_month, index_year)
         print(LINE_SEPARATOR)
         print(f"Poti modifica indexul lunii {ro_month} {index_year}!")
         print(f"Indexul existent este {old_index}!")
@@ -842,6 +863,8 @@ def update_index_input(cursor: sqlite3.Cursor):
                     confirmation = input(
                         "Doresti sa continui cu acest index? (y/n) ")
                     if confirmation.lower() == "y":
+                        logger.info("Updated index input: Username: %s, Index Year: %s, Index Month: %s, New Index: %s",
+                                username, index_year, index_month, new_index)
                         print(
                             f"Indexul a fost modificat de la {old_index} la {new_index}.")
                         break
@@ -855,13 +878,15 @@ def update_index_input(cursor: sqlite3.Cursor):
                 if confirmation.lower() == "n":
                     continue
             except ValueError as verr:
+                logger.exception("Invalid index value: %s", verr)
                 print(LINE_SEPARATOR)
                 print(verr)
     except LookupError as lerr:
-        print(str(lerr))
+        logger.exception("LookupError occurred: %s", lerr)
+        print(lerr)
     except sqlite3.Error as sqerr:
-        raise RuntimeError(
-            "An error occurred while accessing the database.") from sqerr
+        logger.exception("SQLite error occurred while accessing the database: %s", sqerr)
+        raise RuntimeError("An error occurred while accessing the database.") from sqerr
 
 def update_index(connection: sqlite3.Connection, cursor: sqlite3.Cursor):
     """
@@ -873,8 +898,9 @@ def update_index(connection: sqlite3.Connection, cursor: sqlite3.Cursor):
 
     Raises:
         ValueError: If there is an error in the input or calculations.
-        sqlite3.Error: If there is a communication issue with the database.
+        sqlite3.Error: If there is an error when executing the SQL statement.
     """
+    logger.info("Updating index")
     try:
         username, index_year, index_month, new_index = update_index_input(
             cursor)
@@ -900,11 +926,15 @@ def update_index(connection: sqlite3.Connection, cursor: sqlite3.Cursor):
              certif_tva, oug_cant, oug_27, oug_val, oug_tva, total_fara_tva,
              total_tva, total_bill_value, username, index_year, index_month))
         connection.commit()
+        logger.info("Index updated successfully")
     except ValueError as verr:
+        logger.exception("ValueError occurred: %s", verr)
         raise ValueError(f"Eroare: {verr}") from verr
     except LookupError as lerr:
+        logger.exception("LookupError occurred: %s", lerr)
         print(str(lerr))
     except sqlite3.Error as sqerr:
+        logger.exception("SQLite error occurred while accessing the database: %s", sqerr)
         raise RuntimeError("Eroare la accesarea bazei de date!") from sqerr
 
 def get_index_input(cursor: sqlite3.Cursor, username: str) -> tuple:
@@ -921,6 +951,7 @@ def get_index_input(cursor: sqlite3.Cursor, username: str) -> tuple:
     Raises:
         ValueError: If the provided bill year, month or index value are not valid.
     """
+    logger.info("Getting index input for user: %s", username)
     try:
         cursor.execute("""SELECT bill_month, bill_year, index_value FROM bills
                        WHERE username = ?
@@ -935,16 +966,21 @@ def get_index_input(cursor: sqlite3.Cursor, username: str) -> tuple:
                 print(f"Ultima luna pentru care s-a inregistrat consumul: "
                       f"{ro_last_bill_month} {last_bill_year}")
                 print(f"Ultimul index inregistrat: {last_bill_index} kWh")
+                logger.info("Last recorded consumption month: %s %s", ro_last_bill_month, last_bill_year)
+                logger.info("Last recorded index: %s kWh", last_bill_index)
             else:
                 current_bill_month = last_bill_month + 1
                 current_bill_year = last_bill_year
                 print(f"Ultima luna pentru care s-a inregistrat consumul: "
                       f"{ro_last_bill_month} {last_bill_year}")
                 print(f"Ultimul index inregistrat: {last_bill_index} kWh")
+                logger.info("Last recorded consumption month: %s %s", ro_last_bill_month, last_bill_year)
+                logger.info("Last recorded index: %s kWh", last_bill_index)
         else:
             current_bill_month = 1
             current_bill_year = 2020
             print("Nu exista inregistrari anterioare ale consumului!")
+            logger.info("No previous consumption records found")
         ro_current_bill_month = get_romanian_month_name(current_bill_month)
         while True:
             try:
@@ -977,9 +1013,13 @@ def get_index_input(cursor: sqlite3.Cursor, username: str) -> tuple:
                 if confirmation.lower() == "n":
                     continue
             except ValueError as verr:
+                logger.exception("ValueError occurred: %s", verr)
                 print(verr)
+                print(verr)
+        logger.info("Index input obtained successfully")
         return current_bill_year, current_bill_month, index_value
     except sqlite3.Error as sqerr:
+        logger.exception("SQLite error occurred while accessing the database: %s", sqerr)
         print(LINE_SEPARATOR)
         print(f"Eroare la conectarea la baza de date: {sqerr}")
 
@@ -999,15 +1039,18 @@ def provide_index(
         index_value (float): The new index value.
 
     Raises:
-        sqlite3.Error: If there is an error executing the SQL statement.
+        sqlite3.Error: If there is an error when executing the SQL statement.
     """
+    logger.info("Providing index for user: %s, year: %d, month: %d, index: %f",
+                username, bill_year, bill_month, index_value)
+
     try:
         bill_user_id = get_client_info(username, cursor)["id"]
         bill_user_username = get_client_info(username, cursor)["username"]
         bill_start_date, bill_end_date, bill_generated_date, bill_due_date = (
             calculate_bill_period(bill_year, bill_month))
         bill_no_date = bill_generated_date.strftime('%d%m%y')
-        bill_no_id = str(get_client_info(username, cursor)['id']).zfill(6)
+        bill_no_id = str(get_client_info(username, cursor)["id"]).zfill(6)
         bill_no = f"{bill_no_date}{bill_no_id}"
         bill_serial = RO_COUNTIES_ABBR[get_client_info(username, cursor)[
             "county"]]
@@ -1038,13 +1081,16 @@ def provide_index(
                         certificate_verzi, certif_val, certif_tva, oug_cant, oug_27,
                         oug_val, oug_tva, total_fara_tva, total_tva, total_bill_value))
         connection.commit()
+        logger.info("Index provided and bill details calculated successfully")
         print(LINE_SEPARATOR)
         print(f"Consumul pentru luna {ro_bill_month} {bill_year} "
               f"a fost inregistrat cu succes!")
     except ValueError as verr:
+        logger.exception("ValueError occurred: %s", verr)
         print(verr)
         raise ValueError from verr
     except sqlite3.Error as sqerr:
+        logger.error("SQLite error occurred while accessing the database: %s", sqerr)
         print(sqerr)
         raise sqlite3.Error from sqerr
 
@@ -1062,6 +1108,7 @@ def generate_excel_input(cursor: sqlite3.Cursor, username: str) -> int:
     Raises:
         ValueError: If the provided bill year is not integer or is out of range.
     """
+    logger.info("Generating Excel input for user: %s", username)
     try:
         cursor.execute("""SELECT bill_year FROM bills
                        WHERE username = ?
@@ -1084,15 +1131,19 @@ def generate_excel_input(cursor: sqlite3.Cursor, username: str) -> int:
                             f"An invalid! Valori posibile: {export_years}")
                     break
                 except ValueError as verr:
+                    logger.exception("ValueError occurred: %s", verr)
                     print(LINE_SEPARATOR)
                     print(verr)
         else:
             export_years = str(next(iter(export_years_set)))
             print(f"Poti genera exportul xlsx pentru anul {export_years}")
             bill_year = int(export_years)
+        logger.info("Excel input generated successfully")
         return int(bill_year)
     except sqlite3.Error as sqerr:
+        logger.error("SQLite error occurred while accessing the database: %s", sqerr)
         print(f"Eroare la conectarea la baza de date: {sqerr}")
+        raise sqlite3.Error from sqerr
 
 def set_excel_name(username: str, bill_year: int, bill_serial: str) -> str:
     """
@@ -1109,16 +1160,20 @@ def set_excel_name(username: str, bill_year: int, bill_serial: str) -> str:
     Raises:
         OSError: If there is an error creating the directory for the export file.
     """
+    logger.info("Setting Excel export name for user: %s", username)
     excel_name = f"export_consum_{username}-{bill_year}.xlsx"
     excel_folder = MAIN_FOLDER_ROOT / "Exporturi excel" / bill_serial
     try:
         if not os.path.exists(excel_folder):
             os.makedirs(excel_folder)
     except OSError as oserr:
+        logger.exception("OSError occurred while creating the folder: %s", str(excel_folder))
         print(LINE_SEPARATOR)
         error_msg = f"Eroare la crearea folderului {str(excel_folder)}!"
         raise OSError(error_msg) from oserr
-    return str(excel_folder / excel_name)
+    excel_path = str(excel_folder / excel_name)
+    logger.info("Excel export name set successfully: %s", excel_path)
+    return excel_path
 
 def export_excel_table(cursor: sqlite3.Cursor, username: str):
     """
@@ -1131,6 +1186,7 @@ def export_excel_table(cursor: sqlite3.Cursor, username: str):
     Raises:
         OSError: If there is an error creating the directory for the file.
     """
+    logger.info("Exporting bill data to Excel for user: %s", username)
     try:
         bill_year = generate_excel_input(cursor, username)
         if isinstance(bill_year, int):
@@ -1154,17 +1210,23 @@ def export_excel_table(cursor: sqlite3.Cursor, username: str):
                     os.makedirs(os.path.dirname(excel_name))
                 data_frame.to_excel(excel_name, index=False)
                 subprocess.Popen(["start", "", excel_name], shell=True)
+                logger.info("Excel export for user %s and year %d generated successfully: %s",
+                            username, bill_year, excel_name)
                 print(LINE_SEPARATOR)
                 print(
                     f"Exportul excel pentru anul {bill_year} a fost generat cu succes!")
             except OSError as oserr:
+                logger.error("OSError occurred while creating the Excel file: %s", str(excel_name))
                 error_msg = f"Eroare la crearea fisierului {str(excel_name)}!"
                 raise OSError(error_msg) from oserr
         else:
+            logger.error("Invalid bill year entered for user: %s", username)
             raise ValueError("An invalid!")
     except sqlite3.Error as sqerr:
+        logger.error("SQLite error occurred while exporting bill data to Excel: %s", str(sqerr))
         print(LINE_SEPARATOR)
         print(f"Eroare la conectarea la baza de date: {sqerr}")
     except ValueError as verr:
+        logger.error("ValueError occurred while exporting bill data to Excel: %s", str(verr))
         print(LINE_SEPARATOR)
         print(verr)

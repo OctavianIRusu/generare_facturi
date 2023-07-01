@@ -24,11 +24,10 @@ import sys
 from pathlib import Path
 
 from db_interaction import (LINE_SEPARATOR, add_new_user, authenticate,
-                                  create_consumption_table, delete_user,
-                                  export_excel_table, generate_bill_input,
-                                  get_bill_info, get_client_info,
-                                  get_index_input, modify_user_address,
-                                  provide_index, update_index)
+                            create_consumption_table, delete_user,
+                            export_excel_table, generate_bill_input,
+                            get_bill_info, get_client_info, get_index_input,
+                            modify_user_address, provide_index, update_index)
 from exceptions import AuthenticationError
 from generate_pdf import generate_pdf_bill, set_pdf_name
 
@@ -231,6 +230,10 @@ class MenuHandler:
             logger.info("Program interrupted by the user")
             print(f"\n{LINE_SEPARATOR}")
             print("***Programul a fost întrerupt de utilizator!***")
+        except sqlite3.Error as sqerr:
+            logger.exception(sqerr)
+            print(LINE_SEPARATOR)
+            print(sqerr)
 
     def generate_excel_table_menu_action(self):
         """
@@ -259,6 +262,10 @@ class MenuHandler:
             logger.exception("TypeError occurred: Error retrieving data")
             print(LINE_SEPARATOR)
             print("Eroare la obtinerea datelor pentru export!")
+        except sqlite3.Error as sqerr:
+            logger.exception(sqerr)
+            print(LINE_SEPARATOR)
+            print(sqerr)
 
     def add_index_menu_action(self):
         """
@@ -283,14 +290,18 @@ class MenuHandler:
             logger.exception("ValueError occurred: Invalid data provided")
             print(LINE_SEPARATOR)
             print(str(verr))
-        except KeyboardInterrupt as kierr:
+        except KeyboardInterrupt:
             logger.info("Program interrupted by the user")
             print(f"\n{LINE_SEPARATOR}")
-            print(str(kierr))
+            print("***Programul a fost întrerupt de utilizator!***")
         except TypeError:
             logger.exception("TypeError occurred: Error retrieving data")
             print(LINE_SEPARATOR)
             print("Eroare la obtinerea datelor!")
+        except sqlite3.Error as sqerr:
+            logger.exception(sqerr)
+            print(LINE_SEPARATOR)
+            print(sqerr)
 
     def logout_menu_action(self):
         """
@@ -308,7 +319,7 @@ class MenuHandler:
         except KeyboardInterrupt:
             logger.info("Program interrupted by the user")
             print(f"\n{LINE_SEPARATOR}")
-            print(str("!Programul a fost întrerupt de utilizator!"))
+            print("***Programul a fost întrerupt de utilizator!***")
         except sqlite3.Error as sqerr:
             logger.exception(sqerr)
             print(sqerr)
@@ -339,7 +350,7 @@ class MenuHandler:
         except KeyboardInterrupt:
             logger.info("Program interrupted by the user")
             print(f"\n{LINE_SEPARATOR}")
-            print(str("!Programul a fost întrerupt de utilizator!"))
+            print("***Programul a fost întrerupt de utilizator!***")
         except TypeError:
             logger.exception("TypeError occurred: Error retrieving data")
             print(LINE_SEPARATOR)
@@ -368,7 +379,7 @@ class MenuHandler:
         except KeyboardInterrupt:
             logger.info("Program interrupted by the user")
             print(f"\n{LINE_SEPARATOR}")
-            print(str("!Programul a fost întrerupt de utilizator!"))
+            print("***Programul a fost întrerupt de utilizator!***")
         except TypeError:
             logger.exception("TypeError occurred: Error retrieving data")
             print(LINE_SEPARATOR)
@@ -382,10 +393,10 @@ class MenuHandler:
         try:
             logger.info("Modifying consumption index")
             update_index(self.connection, self.cursor)
-        except KeyboardInterrupt as kierr:
+        except KeyboardInterrupt:
             logger.info("Program interrupted by the user")
             print(f"\n{LINE_SEPARATOR}")
-            print(str(kierr))
+            print("***Programul a fost întrerupt de utilizator!***")
         except ValueError:
             logger.exception("ValueError occurred: Invalid data provided")
             print(LINE_SEPARATOR)
@@ -398,6 +409,10 @@ class MenuHandler:
             logger.exception("TypeError occurred: Error retrieving data")
             print(LINE_SEPARATOR)
             print("Eroare la obtinerea datelor!")
+        except sqlite3.Error as sqerr:
+            logger.exception(sqerr)
+            print(LINE_SEPARATOR)
+            print(sqerr)
 
     def delete_user_menu_action(self):
         """
@@ -422,6 +437,10 @@ class MenuHandler:
             logger.exception("TypeError occurred: Error retrieving data")
             print(LINE_SEPARATOR)
             print("Eroare la obtinerea datelor!")
+        except sqlite3.Error as sqerr:
+            logger.exception(sqerr)
+            print(LINE_SEPARATOR)
+            print(sqerr)
 
     def main(self):
         """
