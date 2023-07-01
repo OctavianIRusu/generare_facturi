@@ -1,6 +1,82 @@
-2023-07-01 10:24:36,781 - ERROR - No client with this username: gdsaf
-2023-07-01 10:25:49,051 - ERROR - No client with this username: dsaf
-2023-07-01 10:25:53,210 - ERROR - No client with this username: 03w
-2023-07-01 10:25:56,236 - ERROR - No client with this username: ion pop
-2023-07-01 10:34:58,796 - ERROR - No client with this username: dsga
-2023-07-01 10:38:25,098 - ERROR - No client with this username: sfafs
+2023-07-01 12:13:06,668 - ERROR - No ZIP code found for locality 'Sfantu Ilie'
+2023-07-01 12:13:06,668 - ERROR - sqlite3.Error occurred: NOT NULL constraint failed: users.zipcode
+Traceback (most recent call last):
+  File "d:\Python\generare_facturi\db_interaction.py", line 360, in modify_user_address
+    cursor.execute('''UPDATE users SET street = ?, zipcode = ?,
+sqlite3.IntegrityError: NOT NULL constraint failed: users.zipcode
+2023-07-01 12:15:19,166 - ERROR - No ZIP code found for locality 'Sfantu Ilie'
+2023-07-01 12:15:19,166 - ERROR - sqlite3.Error occurred: NOT NULL constraint failed: users.zipcode
+Traceback (most recent call last):
+  File "d:\Python\generare_facturi\db_interaction.py", line 358, in modify_user_address
+    cursor.execute('''UPDATE users SET street = ?, zipcode = ?,
+sqlite3.IntegrityError: NOT NULL constraint failed: users.zipcode
+2023-07-01 12:16:14,271 - ERROR - No ZIP code found for locality 'Sfantu Ilie'
+2023-07-01 12:16:14,272 - ERROR - sqlite3.Error occurred: NOT NULL constraint failed: users.zipcode
+Traceback (most recent call last):
+  File "d:\Python\generare_facturi\db_interaction.py", line 359, in modify_user_address
+    cursor.execute('''UPDATE users SET street = ?, zipcode = ?,
+sqlite3.IntegrityError: NOT NULL constraint failed: users.zipcode
+2023-07-01 12:18:18,560 - ERROR - No ZIP code found for locality 'Sfantu Ilie'
+2023-07-01 12:18:18,560 - ERROR - sqlite3.Error occurred: NOT NULL constraint failed: users.zipcode
+Traceback (most recent call last):
+  File "d:\Python\generare_facturi\db_interaction.py", line 360, in modify_user_address
+    cursor.execute('''UPDATE users SET street = ?, zipcode = ?,
+sqlite3.IntegrityError: NOT NULL constraint failed: users.zipcode
+2023-07-01 12:20:48,921 - ERROR - No client with this username: ghsf
+2023-07-01 12:20:54,727 - ERROR - No client with this username 'ionpopa'
+NoneType: None
+2023-07-01 12:20:54,727 - ERROR - LookupError occurred: Nu s-a gasit niciun client cu username-ul 'ionpopa'!
+Traceback (most recent call last):
+  File "d:\Python\generare_facturi\db_interaction.py", line 859, in update_index_input
+    raise LookupError(
+LookupError: Nu s-a gasit niciun client cu username-ul 'ionpopa'!
+2023-07-01 12:23:02,615 - ERROR - No consumption records for client: 'ionpopa'
+NoneType: None
+2023-07-01 12:23:02,617 - ERROR - LookupError occurred: Nu exista inregistrari de consum pentru 'ionpopa'!
+Traceback (most recent call last):
+  File "d:\Python\generare_facturi\db_interaction.py", line 859, in update_index_input
+    raise LookupError(
+LookupError: Nu exista inregistrari de consum pentru 'ionpopa'!
+2023-07-01 12:24:01,503 - ERROR - No consumption records for client: 'ionpopa'
+NoneType: None
+2023-07-01 12:24:01,503 - ERROR - LookupError occurred: Nu exista inregistrari de consum pentru 'ionpopa'!
+Traceback (most recent call last):
+  File "d:\Python\generare_facturi\db_interaction.py", line 859, in update_index_input
+    raise LookupError(
+LookupError: Nu exista inregistrari de consum pentru 'ionpopa'!
+2023-07-01 12:24:51,288 - ERROR - Invalid index value: Consumul nu poate fi negativ!
+Traceback (most recent call last):
+  File "d:\Python\generare_facturi\db_interaction.py", line 878, in update_index_input
+    raise ValueError("Consumul nu poate fi negativ!")
+ValueError: Consumul nu poate fi negativ!
+2023-07-01 12:25:18,897 - ERROR - No client with this username: gasf
+2023-07-01 12:36:41,928 - ERROR - ValueError occurred: Consumul nu poate fi negativ!
+Traceback (most recent call last):
+  File "d:\Python\generare_facturi\db_interaction.py", line 1028, in get_index_input
+    raise ValueError("Consumul nu poate fi negativ!")
+ValueError: Consumul nu poate fi negativ!
+2023-07-01 12:39:25,690 - ERROR - ValueError occurred: Consumul nu poate fi negativ!
+Traceback (most recent call last):
+  File "d:\Python\generare_facturi\db_interaction.py", line 1028, in get_index_input
+    raise ValueError("Consumul nu poate fi negativ!")
+ValueError: Consumul nu poate fi negativ!
+2023-07-01 12:39:30,709 - ERROR - ValueError occurred: Indexul trebuie sa fie o valoare numerica!
+Traceback (most recent call last):
+  File "d:\Python\generare_facturi\db_interaction.py", line 1021, in get_index_input
+    raise ValueError(
+ValueError: Indexul trebuie sa fie o valoare numerica!
+2023-07-01 12:40:03,455 - ERROR - Invalid bill year: An invalid! Valori posibile: 2020, 2021.
+Traceback (most recent call last):
+  File "d:\Python\generare_facturi\db_interaction.py", line 802, in generate_bill_input
+    raise ValueError(
+ValueError: An invalid! Valori posibile: 2020, 2021.
+2023-07-01 12:40:04,957 - ERROR - Invalid bill year: An invalid! Valori posibile: 2020, 2021.
+Traceback (most recent call last):
+  File "d:\Python\generare_facturi\db_interaction.py", line 802, in generate_bill_input
+    raise ValueError(
+ValueError: An invalid! Valori posibile: 2020, 2021.
+2023-07-01 12:40:10,410 - ERROR - Invalid bill month: Luna invalida! Valori posibile: 1, 2, 3, 4, 5
+Traceback (most recent call last):
+  File "d:\Python\generare_facturi\db_interaction.py", line 822, in generate_bill_input
+    raise ValueError(
+ValueError: Luna invalida! Valori posibile: 1, 2, 3, 4, 5

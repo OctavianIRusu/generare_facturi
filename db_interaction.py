@@ -218,19 +218,17 @@ def get_new_user_zipcode(locality, county, file_path) -> str:
         FileNotFoundError: If the specified file does not exist.
         ValueError: If the searched value does not exist.    
     """
-    while True:
-        logger.info("Retrieving ZIP code for locality '%s'", locality)
-        with open(file_path, 'r', encoding='utf-8') as file:
-            reader = csv.reader(file)
-            for row in reader:
-                if (row[0] == locality.capitalize() and
-                    row[1] == county.capitalize()):
-                    zipcode = row[3]
-                    logger.info("ZIP code '%s' retrieved for locality '%s'",
-                                zipcode, locality)
-                    return zipcode
-        logger.info("No ZIP code found for locality '%s'", locality)
-        print("Codul postal nu a putut fi atribuit!")
+    logger.info("Retrieving ZIP code for locality '%s'", locality)
+    with open(file_path, 'r', encoding='utf-8') as file:
+        reader = csv.reader(file)
+        for row in reader:
+            if (row[0].lower() == locality.lower() and
+                row[1].lower() == county.lower()):
+                logger.info("ZIP code '%s' retrieved for locality '%s'",
+                            row[3], locality)
+                return row[3]
+    logger.error("No ZIP code found for locality '%s'", locality)
+    print("Codul postal nu a putut fi atribuit!")
 
 def validate_new_user_name():
     """
@@ -857,9 +855,9 @@ def update_index_input(cursor: sqlite3.Cursor):
                        ORDER BY bill_id DESC LIMIT 1""", (username,))
         result = cursor.fetchone()
         if result is None:
-            logger.exception("No client with this username '%s'", username)
+            logger.exception("No consumption records for client: '%s'", username)
             raise LookupError(
-                f"Nu s-a gasit niciun client cu username-ul '{username}'!")
+                f"Nu exista inregistrari de consum pentru '{username}'!")
         old_index, index_month, index_year = result
         ro_month = get_romanian_month_name(index_month)
         logger.info("Old index value: %s, Index month: %s, Index year: %s",
@@ -907,13 +905,14 @@ def update_index_input(cursor: sqlite3.Cursor):
                 print(LINE_SEPARATOR)
                 print(verr)
     except LookupError as lerr:
+        print(LINE_SEPARATOR)
         logger.exception("LookupError occurred: %s", lerr)
         print(lerr)
     except sqlite3.Error as sqerr:
+        print(LINE_SEPARATOR)
         logger.exception("""SQLite error occurred while accessing 
                          the database: %s""", sqerr)
-        raise RuntimeError(
-            "An error occurred while accessing the database.") from sqerr
+        print(sqerr)
 
 def update_index(connection: sqlite3.Connection, cursor: sqlite3.Cursor):
     """
@@ -1046,7 +1045,6 @@ def get_index_input(cursor: sqlite3.Cursor, username: str) -> tuple:
                     continue
             except ValueError as verr:
                 logger.exception("ValueError occurred: %s", verr)
-                print(verr)
                 print(verr)
         logger.info("Index input obtained successfully")
         return current_bill_year, current_bill_month, index_value

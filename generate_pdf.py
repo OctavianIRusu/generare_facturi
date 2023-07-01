@@ -39,7 +39,7 @@ logger.setLevel(logging.DEBUG)
 
 log_formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
 
-file_handler = logging.FileHandler('logs/main.log')
+file_handler = logging.FileHandler('logs/generate_pdf.log')
 file_handler.setLevel(logging.ERROR)
 file_handler.setFormatter(log_formatter)
 

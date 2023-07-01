@@ -1,0 +1,49 @@
+2023-07-01 12:01:25,807 - ERROR - AuthenticationError: Username sau parola gresita!
+Traceback (most recent call last):
+  File "d:\Python\generare_facturi\main.py", line 479, in main
+    raise AuthenticationError("Username sau parola gresita!")
+exceptions.AuthenticationError: AuthenticationError: Username sau parola gresita!
+2023-07-01 12:01:43,453 - ERROR - ValueError occurred: Introdu un numar intre 1 si 5!
+Traceback (most recent call last):
+  File "d:\Python\generare_facturi\main.py", line 129, in handle_menu
+    raise ValueError(
+ValueError: Introdu un numar intre 1 si 5!
+2023-07-01 12:07:07,149 - ERROR - AuthenticationError: Username sau parola gresita!
+Traceback (most recent call last):
+  File "d:\Python\generare_facturi\main.py", line 479, in main
+    raise AuthenticationError("Username sau parola gresita!")
+exceptions.AuthenticationError: AuthenticationError: Username sau parola gresita!
+2023-07-01 12:19:44,886 - ERROR - ValueError occurred: Introdu un numar intre 1 si 5!
+Traceback (most recent call last):
+  File "d:\Python\generare_facturi\main.py", line 129, in handle_menu
+    raise ValueError(
+ValueError: Introdu un numar intre 1 si 5!
+2023-07-01 12:20:54,740 - ERROR - TypeError occurred: Error retrieving data
+Traceback (most recent call last):
+  File "d:\Python\generare_facturi\main.py", line 395, in modify_index_menu_action
+    update_index(self.connection, self.cursor)
+  File "d:\Python\generare_facturi\db_interaction.py", line 930, in update_index
+    username, index_year, index_month, new_index = update_index_input(
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: cannot unpack non-iterable NoneType object
+2023-07-01 12:23:02,617 - ERROR - TypeError occurred: Error retrieving data
+Traceback (most recent call last):
+  File "d:\Python\generare_facturi\main.py", line 395, in modify_index_menu_action
+    update_index(self.connection, self.cursor)
+  File "d:\Python\generare_facturi\db_interaction.py", line 930, in update_index
+    username, index_year, index_month, new_index = update_index_input(
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: cannot unpack non-iterable NoneType object
+2023-07-01 12:24:01,503 - ERROR - TypeError occurred: Error retrieving data
+Traceback (most recent call last):
+  File "d:\Python\generare_facturi\main.py", line 395, in modify_index_menu_action
+    update_index(self.connection, self.cursor)
+  File "d:\Python\generare_facturi\db_interaction.py", line 931, in update_index
+    username, index_year, index_month, new_index = update_index_input(
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: cannot unpack non-iterable NoneType object
+2023-07-01 12:36:31,482 - ERROR - ValueError occurred: Introdu un numar intre 1 si 4!
+Traceback (most recent call last):
+  File "d:\Python\generare_facturi\main.py", line 129, in handle_menu
+    raise ValueError(
+ValueError: Introdu un numar intre 1 si 4!
