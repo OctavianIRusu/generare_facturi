@@ -49,7 +49,7 @@ DB_FILE = MAIN_FOLDER_ROOT / "bill_database.sqlite"
 
 class MenuHandler:
     """
-    A class that handles the menu options and actions for the billing application.
+    A class that handles the menu options and actions for the billing app.
 
     Attributes:
         connection (object): The database connection object.

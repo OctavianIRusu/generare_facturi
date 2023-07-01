@@ -9,7 +9,7 @@ The module provides the following functions:
     write_text_line: Inserts line of texts in the pdf page.
     generate_table: Inserts a table within the canvas.
     generate_barcode: Inserts a barcode
-    generate_barcode: The main function, that uses all the other functions
+    generate_pdf_bill: The main function, that uses all the other functions
         and works with the data coming from database to create the format 
         and design of the pdf invoice
     
@@ -20,6 +20,7 @@ Please note that this module requires the following external libraries:
 For more information, refer to the README file.
 """
 
+import logging
 import os
 from pathlib import Path
 
@@ -31,6 +32,18 @@ from reportlab.pdfgen.canvas import Canvas
 from reportlab.platypus import Table, TableStyle
 
 from db_interaction import LINE_SEPARATOR
+
+# setting up logging configurations and handlers
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
+
+log_formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+
+file_handler = logging.FileHandler('logs/main.log')
+file_handler.setLevel(logging.ERROR)
+file_handler.setFormatter(log_formatter)
+
+logger.addHandler(file_handler)
 
 # Set the root folder path and icons folder path
 MAIN_FOLDER_ROOT = Path(__file__).parent
@@ -56,7 +69,6 @@ COMPANY_INFO = {
     "email": "contact@greenergy.ro"
 }
 
-
 def set_pdf_name(bill_serial: str, bill_number: str):
     """
     Set the PDF file name based on the bill serial and number.
@@ -71,17 +83,21 @@ def set_pdf_name(bill_serial: str, bill_number: str):
     Raises:
         OSError: If there is an error creating the directory for PDF bills.
     """
-    pdf_name = f"factura_{COMPANY_INFO['name'].lower()}_{bill_serial}-{bill_number}.pdf"
+    logger.info("Setting PDF file name for bill: %s-%s", bill_serial, bill_number)
+    pdf_name = (f"factura_{COMPANY_INFO['name'].lower()}"
+                f"_{bill_serial}-{bill_number}.pdf")
     pdf_bills_folder = MAIN_FOLDER_ROOT / "Facturi generate" / bill_serial
     try:
         if not os.path.exists(pdf_bills_folder):
             os.makedirs(pdf_bills_folder)
+            logger.info("PDF bills folder created: %s", str(pdf_bills_folder))
     except OSError as oserr:
+        logger.error("OSError occurred while creating the PDF bills folder: %s",
+                     str(pdf_bills_folder))
         print(LINE_SEPARATOR)
         error_msg = f"Eroare la crearea folderului {str(pdf_bills_folder)}!"
         raise OSError(error_msg) from oserr
     return str(pdf_bills_folder / pdf_name)
-
 
 def draw_img(
         canvas: Canvas, file_path: str, x_origin: float, y_origin: float,
@@ -103,13 +119,14 @@ def draw_img(
         TypeError: If any of the arguments is not of expected type.
         Exception: If any other unexpected error occurs during the execution.
     """
+    logger.info("Inserting image: %s", file_path)
     if (not 0 <= x_origin <= 1 or not 0 <= y_origin <= 1
             or not 0 <= img_width <= 1 or not 0 <= img_height <= 1):
         raise ValueError(
             "Pozitia/dimensiunea trebuie sa fie de tip float (0-1).")
-    canvas.drawImage(file_path, x_origin * P_WIDTH, y_origin *
-                     P_HEIGHT, img_width * P_WIDTH, img_height * P_HEIGHT, "auto")
-
+    canvas.drawImage(file_path, x_origin * P_WIDTH, y_origin * P_HEIGHT,
+                     img_width * P_WIDTH, img_height * P_HEIGHT, "auto")
+    logger.info("Image inserted successfully.")
 
 def write_text_line(
         canvas: Canvas, text: str, font: str, size: int, text_color: str,
@@ -132,13 +149,14 @@ def write_text_line(
         KeyError: If the specified font does not exist in the library.
         Exception: If any other unexpected error occurs during the execution.
     """
+    logger.info("Writing text: %s", text)
     if not 0 <= x_value <= 1 or not 0 <= y_value <= 1:
         raise ValueError(
             "Pozitia/dimensiunea trebuie sa fie de tip float (0-1).")
     canvas.setFont(font, size)
     canvas.setFillColor(text_color)
     canvas.drawString(x_value * P_WIDTH, y_value * P_HEIGHT, text)
-
+    logger.info("Text written successfully.")
 
 def generate_table(canvas: Canvas, content: dict):
     """
@@ -154,6 +172,7 @@ def generate_table(canvas: Canvas, content: dict):
         ValueError: If any invalid values result for column/row dimensions.
         Exception: If any other unexpected error occurs during the execution.
     """
+    logger.info("Generating table.")
     headers = list(content.keys())
     rows = list(zip(*content.values()))
     data = [headers] + rows
@@ -178,10 +197,10 @@ def generate_table(canvas: Canvas, content: dict):
     ]
     table.setStyle(TableStyle(table_style))
     table.wrapOn(canvas, P_WIDTH * 0.75, P_HEIGHT)
-    x = 0.1 * P_WIDTH
-    y = 0.238 * P_HEIGHT
-    table.drawOn(canvas, x, y)
-
+    x_value = 0.1 * P_WIDTH
+    y_value = 0.238 * P_HEIGHT
+    table.drawOn(canvas, x_value, y_value)
+    logger.info("Table generated successfully.")
 
 def generate_barcode(
         canvas: Canvas, barcode_value: str, x_position: float,
@@ -198,8 +217,8 @@ def generate_barcode(
     Raises:
         TypeError: If the arguments are not of expected type.
         ValueError: If any of the float arguments have invalid values.
-        Exception: If any other unexpected error occurs during the execution.
     """
+    logger.info("Generating barcode.")
     try:
         if not isinstance(canvas, Canvas):
             raise TypeError(
@@ -207,13 +226,17 @@ def generate_barcode(
         canvas.setFillColor("black")
         bill_barcode = code128.Code128(
             barcode_value, barWidth=1, barHeight=1 * cm, humanReadable=True)
-        bill_barcode.drawOn(
-            canvas, (P_WIDTH - bill_barcode.width) / x_position, y_position * P_HEIGHT)
+        bill_barcode.drawOn(canvas, (P_WIDTH - bill_barcode.width) / x_position,
+                            y_position * P_HEIGHT)
+        logger.info("Barcode generated successfully.")
     except TypeError as terr:
-        print(f"Eroare: Parametrul nu este de tipul asteptat: {terr}")
-    except Exception as err:
-        print(f"Eroare neasteptata draw_img: {err}")
-
+        logger.error("TypeError occurred: %s", terr)
+        print(f"Eroare: {terr}")
+        raise terr
+    except ValueError as verr:
+        logger.error("ValueError occurred: %s", str(verr))
+        print(f"Eroare: {verr}")
+        raise verr
 
 def generate_pdf_bill(
         file_name: str, client_info: dict, bill_info: dict, bill_details: dict):
@@ -222,9 +245,9 @@ def generate_pdf_bill(
 
     Args:
         file_name (str): The name of the PDF file to be generated.
-        client_info (dict): A dictionary containing information about the client.
-        bill_info (dict): A dictionary containing information about the bill.
-        bill_details (dict): A dictionary containing the bill details.
+        client_info (dict): A dictionary containing info about the client.
+        bill_info (dict): A dictionary containing info about the bill.
+        bill_details (dict): A dictionary containing the consumption details.
 
     Raises:
         TypeError: If the arguments are not of the expected type.
@@ -272,14 +295,16 @@ def generate_pdf_bill(
         write_text_line(bill_canvas, "Factura fiscala", "Times-Bold", 13,
                         "black", 0.625, 0.741)
         write_text_line(bill_canvas,
-                        f"Seria {bill_info['bill_serial']} nr. {bill_info['bill_number']}",
+                        f"Seria {bill_info['bill_serial']} nr. "
+                        f"{bill_info['bill_number']}",
                         "Times-Roman", 12, "black", 0.625, 0.719)
         write_text_line(bill_canvas, bill_info['bill_generated_date'],
                         "Times-Roman", 12, "black", 0.746, 0.699)
         write_text_line(bill_canvas, bill_info['bill_due_date'], "Times-Roman",
                         12, "black", 0.758, 0.680)
         write_text_line(bill_canvas,
-                        f"{bill_info['bill_start_date']} - {bill_info['bill_end_date']}",
+                        f"{bill_info['bill_start_date']} - "
+                        f"{bill_info['bill_end_date']}",
                         "Times-Roman", 12, "black", 0.625, 0.643)
         write_text_line(bill_canvas, "Data facturii:", "Times-Bold", 12,
                         "black", 0.625, 0.699)
@@ -294,7 +319,8 @@ def generate_pdf_bill(
         write_text_line(bill_canvas, client_info["street"], "Times-Roman", 12,
                         "black", 0.143, 0.719)
         write_text_line(bill_canvas,
-                        f"{client_info['zipcode']}, {client_info['city'].upper()}, Judetul {client_info['county']}",
+                        f"{client_info['zipcode']}, {client_info['city'].upper()}, "
+                        f"Judetul {client_info['county']}",
                         "Times-Roman", 12, "black", 0.143, 0.699)
         write_text_line(bill_canvas, f"Cod client: {client_info['id']}",
                         "Times-Roman", 12, "black", 0.143, 0.680)
@@ -304,7 +330,8 @@ def generate_pdf_bill(
                         24, "green", 0.111, 0.588)
         write_text_line(bill_canvas, "Din ce este compus consumul tau?",
                         "Times-Bold", 15, "green", 0.111, 0.500)
-        write_text_line(bill_canvas, f"{COMPANY_INFO['name'].upper()} HOME ELECTRIC",
+        write_text_line(bill_canvas,
+                        f"{COMPANY_INFO['name'].upper()} HOME ELECTRIC",
                         "Times-Bold", 14, "black", 0.111, 0.556)
         write_text_line(bill_canvas, f"{bill_info['total_bill_value']:.2f}  lei",
                         "Times-Bold", 14, "black", 0.769, 0.556)
@@ -344,20 +371,22 @@ def generate_pdf_bill(
         print("-" * 65)
         print("Factura a fost generata cu succes!")
     except AttributeError as aerr:
+        logger.exception(aerr)
         print(LINE_SEPARATOR)
         print(aerr)
     except TypeError as terr:
+        logger.exception(terr)
         print(LINE_SEPARATOR)
         print(terr)
     except ValueError as verr:
+        logger.exception(verr)
         print(LINE_SEPARATOR)
         print(verr)
     except KeyError as kerr:
+        logger.exception(kerr)
         print(LINE_SEPARATOR)
         print(kerr)
     except OSError as oserr:
+        logger.exception(oserr)
         print(LINE_SEPARATOR)
         print(oserr)
-    except Exception as err:
-        print(LINE_SEPARATOR)
-        print(err)
